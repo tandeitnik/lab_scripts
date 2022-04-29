@@ -1,37 +1,28 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Wed Apr 13 13:00:08 2022
-
-@author: Labq
-"""
-
-# OscilloscopeStream.py
-#
-# This example performs a stream mode measurement and writes the data to OscilloscopeStream.csv.
-#
-# Find more information on http://www.tiepie.com/LibTiePie .
 
 from __future__ import print_function
 import time
 import os
 import sys
 import libtiepie
+import beepy
 from tqdm import tqdm
 from printinfo import *
 
 #name = input('z position')
 
-sample_frequency = 1e4 #quantidade de pontos por traço
-acq_time = 10 # tempo total do traço
+sample_frequency = 5000 #quantidade de pontos por traço
+acq_time = 1 # tempo total do traço
+N = 10
+path = r"C:\Users\Labq\Dropbox\Daniel_RT\teste\data" #pasta raíz aonde a nova pasta será criada
 
 freq = sample_frequency/acq_time
+dt = 1/freq
 
-
-delay = acq_time*2
 record_length = int(acq_time / (1/sample_frequency))
 #record_length = 1000  # 1 kS
-N = 20
-path =  r'C:\Users\Labq\Dropbox\Daniel_RT\teste\data'  #diretorio para salvar
+delay = 0.5
+
 
 
 def getNextFilePath(output_folder):
@@ -108,6 +99,7 @@ for n in tqdm(range(N)):
             try:
                 # Write csv header:
                 csv_file.write('Sample')
+                csv_file.write(';Rel. Time')
                 for i in range(len(scp.channels)):
                     csv_file.write(';Ch' + str(i + 1))
                 csv_file.write(os.linesep)
@@ -116,6 +108,7 @@ for n in tqdm(range(N)):
                 # Measure 10 chunks:
                 #print()
                 sample = 0
+                relativeTime = 0
                 for chunk in range(1):
                     # Print a message, to inform the user that we still do something:
                     #print('Data chunk ' + str(chunk + 1))
@@ -135,6 +128,7 @@ for n in tqdm(range(N)):
                     # Output CSV data:
                     for i in range(len(data[0])):
                         csv_file.write(str(sample + i))
+                        csv_file.write(';' + str(relativeTime+i*dt))
                         for j in range(len(data)):
                             csv_file.write(';' + str(data[j][i]))
                         csv_file.write(os.linesep)
@@ -161,3 +155,7 @@ for n in tqdm(range(N)):
         sys.exit(1)
 
     time.sleep(delay)
+    
+    
+    
+beepy.beep(sound=1)
