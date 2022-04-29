@@ -9,8 +9,6 @@ import beepy
 from tqdm import tqdm
 from printinfo import *
 
-#name = input('z position')
-
 sample_frequency = 5000 #quantidade de pontos por traço
 acq_time = 1 # tempo total do traço
 N = 10
@@ -20,10 +18,7 @@ freq = sample_frequency/acq_time
 dt = 1/freq
 
 record_length = int(acq_time / (1/sample_frequency))
-#record_length = 1000  # 1 kS
 delay = 0.5
-
-
 
 def getNextFilePath(output_folder):
     highest_num = 0
@@ -73,7 +68,7 @@ for n in tqdm(range(N)):
             scp.measure_mode = libtiepie.MM_STREAM
     
             # Set sample frequency:
-            scp.sample_frequency = sample_frequency  # 1 kHz
+            scp.sample_frequency = sample_frequency
     
             # Set record length:
             scp.record_length = record_length
@@ -87,7 +82,7 @@ for n in tqdm(range(N)):
                 ch.range = 8  # 8 V
     
                 # Set coupling:
-                ch.coupling = libtiepie.CK_DCV  # DC Volt
+                ch.coupling = libtiepie.CK_DCV
     
             # Print oscilloscope info:
             #print_device_info(scp)
@@ -103,10 +98,7 @@ for n in tqdm(range(N)):
                 for i in range(len(scp.channels)):
                     csv_file.write(';Ch' + str(i + 1))
                 csv_file.write(os.linesep)
-    
-    
-                # Measure 10 chunks:
-                #print()
+
                 sample = 0
                 relativeTime = 0
                 for chunk in range(1):
@@ -155,7 +147,5 @@ for n in tqdm(range(N)):
         sys.exit(1)
 
     time.sleep(delay)
-    
-    
     
 beepy.beep(sound=1)
