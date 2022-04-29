@@ -6,6 +6,8 @@ from datetime import date
 import tqdm
 import beepy
 
+#this script is for the oscilloscope Tektronix TDS 2024B
+
 N = 10  # Número de amostras
 delay = 0.5  # Tempo entre as amostras, a unidade é segundos
 experiment = '7' #número do experimento do dia
