@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+# -*- coding: utf-8 -*-
+
 from __future__ import print_function
 import time
 import os
@@ -9,39 +11,32 @@ import beepy
 from tqdm import tqdm
 from printinfo import *
 
-sample_frequency = 5000 #quantidade de pontos por traço
-acq_time = 1 # tempo total do traço
-N = 10
-path = r"C:\Users\Labq\Dropbox\Daniel_RT\teste\data" #pasta raíz aonde a nova pasta será criada
-
-freq = sample_frequency/acq_time
+sample_frequency = 10_000 #quantidade de pontos por segundo
+acq_time = 1 # tempo total do traço [s]
+output_folder = r"C:\Users\Labq\Dropbox\scripts\tiepie\data" #pasta raíz aonde a nova pasta será criada
+N = 100 # número de traços
+#freq = sample_frequency/acq_time
+freq = sample_frequency
 dt = 1/freq
 
 record_length = int(acq_time / (1/sample_frequency))
 delay = 0.5
 
-def getNextFilePath(output_folder):
-    highest_num = 0
-    for f in os.listdir(output_folder):
-        #print(f)
-        if os.path.isfile(os.path.join(output_folder, f)):
-            file_name = os.path.splitext(f)[0]
-            #print(file_name)
-            try:
-                file_num = int(file_name)
-                #print(file_num)
-                if file_num > highest_num:
-                    highest_num = file_num
-            except ValueError:
-                'The file name "%s" is not an integer. Skipping' % file_name
+file_names = []
 
-    output_file = os.path.join(output_folder, str(highest_num + 1))
-    #print(output_file)
-    return output_file
+for i in range(N):
+    
+    if i <= 9:
+        
+        file_names.append('0'+str(i))
+        
+    else:
+        
+        file_names.append(str(i))
 
 for n in tqdm(range(N)):
 
-    output_file = getNextFilePath(path)
+    output_file = os.path.join(output_folder,file_names[n])
     
     # Print library info:
     #print_library_info()
@@ -79,7 +74,7 @@ for n in tqdm(range(N)):
                 ch.enabled = True
     
                 # Set range:
-                ch.range = 8  # 8 V
+                ch.range = 10  # 8 V
     
                 # Set coupling:
                 ch.coupling = libtiepie.CK_DCV
@@ -115,7 +110,7 @@ for n in tqdm(range(N)):
     
                     # Get data:
                     data = scp.get_data()
-                    m = print(len(data[1]))
+                    #m = print(len(data[1]))
     
                     # Output CSV data:
                     for i in range(len(data[0])):
@@ -146,6 +141,4 @@ for n in tqdm(range(N)):
         print('No oscilloscope available with stream measurement support!')
         sys.exit(1)
 
-    time.sleep(delay)
-    
 beepy.beep(sound=1)
