@@ -15,7 +15,11 @@ import matplotlib.pyplot as plt
 
 path = r"C:\Users\Labq\Dropbox\scripts\tiepie\data"  #pasta raíz aonde contém os dados
 N = 1 #quantos traços fazer por traço
-normalize = 0 #se 0 não normaliza o sinal do canal 1 com o canal 2, se 1 normaliza
+normalize = 1 #se 0 não normaliza o sinal do canal 1 com o canal 2, se 1 normaliza
+skip_points = 7 # número de pontos iniciais ignorados pro fit
+
+
+
 
 skip_line = 2
 files = next(os.walk(path))[2]
@@ -48,7 +52,7 @@ for file in files:
     #tirando a média
     PSD = PSD/N
     
-    PSD_list.append(PSD[1:])
+    PSD_list.append(PSD[skip_points:])
     
 mean_psd = PSD_list[0]
 
@@ -73,16 +77,14 @@ def aliased_lorentzian(f, D, f_c, cst ):                                       #
     k=f*dt                                                                     #The frequencies in which PSD is evaluated multiplied by dt  
     return (1-c**2)*D/(2*np.pi*f_c*f_s)*1/(1+c**2-2*c*np.cos(2*np.pi*k))+cst
 
-fit = curve_fit(aliased_lorentzian,freq[1:],mean_psd)
+fit = curve_fit(aliased_lorentzian,freq[skip_points:],mean_psd)
 ans, cov = fit
    
 D,f_c,cst = ans    
 perr = np.sqrt(np.diag(cov))        
 
 fig, ax = plt.subplots()
-ax.errorbar(freq[1:], mean_psd,yerr=np.sqrt(var_psd), fmt='o', markersize=1, color='red', ecolor='red', elinewidth=0.5, capsize=0)
-ax.plot(freq[1:],aliased_lorentzian(freq[1:], D, f_c, cst ), color='blue')
+ax.errorbar(freq[skip_points:], mean_psd, fmt='o', markersize=1, color='red', ecolor='red', elinewidth=0.5, capsize=0)
+ax.plot(freq[skip_points:],aliased_lorentzian(freq[skip_points:], D, f_c, cst ), color='blue')
 ax.set_xscale("log", nonposx='clip')
 ax.set_yscale("log", nonposy='clip')
-
-   
