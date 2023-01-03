@@ -10,6 +10,9 @@ from datetime import datetime
 from tqdm import tqdm
 import beepy
 
+#####################################################################
+#####################################################################
+
 reps = 1 #number of repetitions the data is collected - it is different from number of traces
 delay = 10 #time in seconds the script waits beetween each repetition
 
@@ -23,6 +26,11 @@ autoRange = 1 #if it equals to 1, voltageRange will be ignored and an automatic 
 gainAutoRange = 1.5 #multiplicative factor that determines the autoRange
 
 experimentDescription = "Partícula pinçada a 10mbar. Experimento para medir o SNR do foward."
+
+#####################################################################
+#####################################################################
+
+now = datetime.now()
 
 #writing experience info txt
 lines = ['Experiment info',
