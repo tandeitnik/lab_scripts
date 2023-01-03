@@ -100,7 +100,7 @@ for i, folder in enumerate(selectedFolders):
         #ax.scatter(freq ,powerList[i],label = folder , s = 10)
         ax.set_xlim([10, f/2])
         ax.set_ylim([min(powerList[i][1:]), max(powerList[i])])
-        ax.plot(freq ,powerList[0],label = folder)
+        ax.plot(freq ,powerList[i],label = folder)
         
 ax.set_yscale('log')
 ax.set_xscale('log')
