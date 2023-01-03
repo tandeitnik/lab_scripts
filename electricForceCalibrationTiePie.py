@@ -25,7 +25,7 @@ freqRange = 100
 freq = int(200e3) #sampling frequency [Hz]
 acqTime = 1 # total acquisiton time [s]
 N = 20 # number of traces
-rootFolder = r"C:\Users\Labq\Desktop\Daniel R.T\Nova pasta\electricForceCalibration\teste0" #output folder where folders containint the data will be saved
+rootFolder = r"C:\Users\tandeitnik\Downloads\electricForceCalibration-20230103T185658Z-001\electricForceCalibration\teste0" #output folder where folders containint the data will be saved
 coupling= "ACV" #coupling type, can be ACV or DCV.
 voltageRange = 1e-3 #oscilloscope range
 autoRange = 1 #if it equals to 1, voltageRange will be ignored and an automatic range will be determined
@@ -63,14 +63,38 @@ with open(os.path.join(rootFolder,'experimentInfo.txt'), 'w') as f:
         f.write('\n')
 
 
-voltageValues = np.zeros(reps);
+voltageValues = np.zeros(reps)
+
+def generateOrderedNumbers(maxValue):
+
+    decimalPlaces = int(np.log10(maxValue))
+    stopTest = 0
+    numberList = ["0"*(decimalPlaces+1)]
+    
+    for dP in range(decimalPlaces+1):
+        
+        for numeral in range(10**(dP+1)-10**dP):
+            
+            number = (decimalPlaces-dP)*"0"+str(numeral+10**dP)
+            numberList.append(number)
+            
+            if number == str(maxValue-1):
+                stopTest = 1
+                break
+            
+        if stopTest == 1:
+            break
+        
+    return numberList
+
+numberList = generateOrderedNumbers(reps)
 
 for rep in range(reps):
     
     voltageValues[rep] = float(input("Type applyed voltage amplitude (peak to peak): "))
     input("Press ENTER to get next set of measurements...")
     
-    outputFolder = os.path.join(rootFolder,"rep"+str(rep))
+    outputFolder = os.path.join(rootFolder,"rep"+numberList[rep])
     os.mkdir(outputFolder)
     dt = 1/freq
     recordLength = int(acqTime/dt)
@@ -201,6 +225,8 @@ if 'f' in locals():
 
 for folder in folders:
     
+    print(folder)
+    
     path = os.path.join(rootFolder,folder)
     files = next(os.walk(path))[2]
     
@@ -269,9 +295,9 @@ for i in range(reps):
     bottom[i] = (powerList[i][idxLeft]+powerList[i][idxRight])/2
     height[i] = top[i] - bottom[i]
     
-#    plt.loglog(freq,powerList[i])
-#    plt.loglog(freq,np.ones(len(freq))*top[i])
-#    plt.loglog(freq,np.ones(len(freq))*bottom[i])
+    plt.loglog(freq,powerList[i])
+    plt.loglog(freq,np.ones(len(freq))*top[i])
+    plt.loglog(freq,np.ones(len(freq))*bottom[i])
     
 #Linear regression
 slope, intercept, r, p, se = stats.linregress(voltageValues, height)
