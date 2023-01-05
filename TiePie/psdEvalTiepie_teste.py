@@ -47,7 +47,7 @@ for folder in folders:
         for file in files:
             
             #test if the file is in right format
-            if file.teste.endswith('.pkl'):
+            if file.endswith('.pkl'):
                 
                 #making the filePath
                 filePath = os.path.join(pathFolders,folder,file)
