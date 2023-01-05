@@ -25,7 +25,7 @@ freqRange = 100
 freq = int(200e3) #sampling frequency [Hz]
 acqTime = 1 # total acquisiton time [s]
 N = 20 # number of traces
-rootFolder = r"C:\Users\tandeitnik\Downloads\electricForceCalibration-20230103T185658Z-001\electricForceCalibration\teste0" #output folder where folders containint the data will be saved
+rootFolder = r"C:\Users\tandeitnik\Downloads\electricForceCalibration-20230104T112516Z-001\electricForceCalibration\teste0" #output folder where folders containint the data will be saved
 coupling= "ACV" #coupling type, can be ACV or DCV.
 voltageRange = 1e-3 #oscilloscope range
 autoRange = 1 #if it equals to 1, voltageRange will be ignored and an automatic range will be determined
@@ -225,7 +225,6 @@ if 'f' in locals():
 
 for folder in folders:
     
-    print(folder)
     
     path = os.path.join(rootFolder,folder)
     files = next(os.walk(path))[2]
@@ -300,8 +299,8 @@ for i in range(reps):
     plt.loglog(freq,np.ones(len(freq))*bottom[i])
     
 #Linear regression
-slope, intercept, r, p, se = stats.linregress(voltageValues, height)
+slope, intercept, r, p, se = stats.linregress(voltageValues, np.sqrt(height))
 
 plt.plot(slope*voltageValues+intercept)
-plt.scatter(voltageValues, height)
+plt.scatter(voltageValues, np.sqrt(height))
 

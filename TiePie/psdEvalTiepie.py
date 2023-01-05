@@ -14,7 +14,7 @@ import scipy.signal as signal
 windows = 10 #number of windows used for the welch method
 channel = 1 #which channel to evaluate PSD
 welchMethod = 0 #if welchMethod == 1, then Welch method is used (which is quicker but it is an estimation). Otherwise, periodogram is used.
-pathFolders = r"C:\Users\Labq\Desktop\Daniel R.T\Nova pasta\data\forward-noparticle"  #root folder where the reps folders are saved
+pathFolders = r"C:\Users\tandeitnik\Downloads\dadosBreno-20230104T194622Z-001\dadosBreno"  #root folder where the reps folders are saved
 
 
 folders = next(os.walk(pathFolders))[1]
