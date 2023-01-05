@@ -1,2 +1,2 @@
-# lab_scripts
-A collection of scripts developed for use in our quantum optics lab @ PUC-RJ
+# archived files
+Files that are obsolete, i.e, they where replaced with a better version.
