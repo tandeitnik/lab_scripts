@@ -100,6 +100,7 @@ scp.measure_mode = libtiepie.MM_STREAM
 scp.sample_frequency = freq
 
 # Set record length:
+dt = 1/freq
 recordLength = int(acqTime/dt)
 scp.record_length = recordLength
 
@@ -181,17 +182,9 @@ for rep in range(reps):
     
     for n in tqdm(range(N)):
         
-        if n <= 9:
-            
-            outputFile = os.path.join(outputFolder,'0'+str(n))
-            np.save(outputFile,dataList[n])
-            
-        else:
-            
-            outputFile = os.path.join(outputFolder,str(n))
-            np.save(outputFile,dataList[n])
-    
-    
+        outputFile = os.path.join(outputFolder,tracesNumberList[n])
+        dataList[n].to_pickle(outputFile)
+
     if rep != reps-1:
         print("zzzzzzzzz")
         time.sleep(delay)
