@@ -18,6 +18,10 @@ import beepy
 #PARAMETERS SECTION#
 ####################
 
+
+#oscilloscope setup
+#####################
+
 f = int(1e6) #sampling frequency [Hz]
 acqTime = 0.04 # total acquisiton time [s]
 N = 100 # number of traces
@@ -27,18 +31,29 @@ voltageRange = 1e-3 #oscilloscope range
 autoRange = 1 #if it equals to 1, voltageRange will be ignored and an automatic range will be determined
 gainAutoRange = 1.5 #multiplicative factor that determines the autoRange
 
+#write a description of the experiment
+experimentDescription = "Detector calibration. Vacumm chamber at XXmbar."
+
+saveRawData = 0 #if 1 the raw data is saved, else the raw data is deleted and only the mean PSD is saved
+
+#PSD setup
+#####################
+
 windows = 10 #number of windows used for the welch method
 channel = 'ch1' #which channel to evaluate PSD, can be 'ch1' or 'ch2'
 welchMethod = 1 #if welchMethod == 1, then Welch method is used (which is quicker but it is an estimation). Otherwise, periodogram is used.
 
+#physics setup
+#####################
+
 kb = 1.380649e-23 # [m2 kg s-2 K-1]
 T = 293.15 #[K]
+tempError = 1 #[K]
 rho = 2200 #[kg / m3]
 radius = 143e-9/2 #[m]
-volume = (4/3)*np.pi*radius**3
-mass = volume*rho
-
-experimentDescription = "Detector calibration. Vacumm chamber at XXmbar."
+radiusError = 10e-9 #[m]
+volume = (4/3)*np.pi*radius**3 #[m**3]
+mass = volume*rho #[kg]
 
 
 ######################
@@ -171,20 +186,22 @@ for n in tqdm(range(N)):
     #delete original df to save space
     del df
 
+# Close oscilloscope:
+del scp
+
 
 #################
 #saving the data#
 #################
 
-print("saving data")
+if saveRawData == 1:
 
-for n in tqdm(range(N)):
+    print("saving data")
     
-    outputFile = os.path.join(outputFolder,tracesNumberList[n])
-    dataList[n].to_pickle(outputFile)
-
-# Close oscilloscope:
-del scp
+    for n in tqdm(range(N)):
+        
+        outputFile = os.path.join(outputFolder,tracesNumberList[n])
+        dataList[n].to_pickle(outputFile)
 
 
 #####################
@@ -220,10 +237,14 @@ else: #if welch method is OFF
         
         freq, powerTemp = signal.periodogram(dataList[i], f, scaling='density')
         powerArray[i,:] = power
-        
-PSD_mean = np.mean(powerArray, axis = 0)
-PSD_std = np.std(powerArray,axis = 0)
-del powerArray
+
+df_PSD = pd.DataFrame({'f [Hz]':freq, 'power [V**2/Hz]':np.mean(powerArray, axis = 0), 'std [V**2/Hz]':np.std(powerArray,axis = 0)})
+
+#saving the data frame with PSD
+outputFile = os.path.join(outputFolder,'PSD.pkl')
+df_PSD.to_pickle(outputFile)
+
+del powerArray, dataList
 
 
 #################################################
@@ -237,7 +258,7 @@ plt.rcParams["axes.linewidth"] = 1
 
 ax = plt.gca()
 
-ax.scatter(freq ,PSD_mean, s = 10)
+ax.scatter(df_PSD['f [Hz]'] ,df_PSD['power [V**2/Hz]'], s = 10)
 ax.set_xlim([1000, f/2])
         
 ax.set_yscale('log')
@@ -277,10 +298,10 @@ deltaFreq = freq[1]-freq[0]
 idxLeft = int(leftCut/deltaFreq)
 idxRight = int(rightCut/deltaFreq)
 
-trimmedFreq = freq[idxLeft:idxRight]
-trimmedPSD  = PSD_mean[idxLeft:idxRight]
-trimmedSTD  = PSD_std[idxLeft:idxRight]
-
+trimmedPSD = pd.DataFrame({'f [Hz]':df_PSD['f [Hz]'][idxLeft:idxRight], 'power [V**2/Hz]':df_PSD['power [V**2/Hz]'][idxLeft:idxRight], 'std [V**2/Hz]':df_PSD['std [V**2/Hz]'][idxLeft:idxRight]})
+#saving the data frame with trimmed PSD
+outputFile = os.path.join(outputFolder,'trimmedPSD.pkl')
+trimmedPSD.to_pickle(outputFile)
 
 ################
 #making the fit#
@@ -298,22 +319,22 @@ def modelSimplified(f,D,gamma,f_0,cst):
 #discovering hints for fit
 
 #1) discover max value of the PSD
-Sm = np.max(trimmedPSD)
+Sm = np.max(trimmedPSD['power [V**2/Hz]'])
 
 #2) discover approximate frequency where the PSD is at half value
 for i in range(len(trimmedPSD)):
     
-    if trimmedPSD[i] >= Sm:
-        f_0_hint  = trimmedFreq[i]
+    if trimmedPSD['power [V**2/Hz]'][i] >= Sm:
+        f_0_hint  = trimmedPSD['f [Hz]'][i]
         break
 
 for i in range(len(trimmedPSD)):
 
-    if trimmedPSD[i] >= Sm/2 and (('f_l' in locals()) == False):
-        f_l = trimmedFreq[i]
+    if trimmedPSD['power [V**2/Hz]'][i] >= Sm/2 and (('f_l' in locals()) == False):
+        f_l = trimmedPSD['f [Hz]'][i]
         
-    if trimmedPSD[i] <= Sm/2 and (trimmedFreq[i] > f_0_hint):
-        f_r = trimmedFreq[i]
+    if trimmedPSD['power [V**2/Hz]'][i] <= Sm/2 and (trimmedPSD['f [Hz]'][i] > f_0_hint):
+        f_r = trimmedPSD['f [Hz]'][i]
         break
     
 #3) evaluate the hints
@@ -323,17 +344,25 @@ w_l = f_l*np.pi
 
 gamma_hint = np.sqrt( ((w_0_hint**2-w_l**2)**2 - (w_0_hint**2-w_r**2)**2) / (w_r**2 - w_l**2))
 D_hint = Sm*gamma_hint*w_0_hint**2
-cst_hint = np.min(trimmedPSD)
+cst_hint = np.min(trimmedPSD['power [V**2/Hz]'])
 hint = [D_hint,gamma_hint,f_0_hint,cst_hint]
 
 #fitting
-fit = curve_fit(modelSimplified,trimmedFreq,trimmedPSD, p0 = hint, sigma= trimmedSTD, absolute_sigma=True)
+fit = curve_fit(modelSimplified,trimmedPSD['f [Hz]'],trimmedPSD['power [V**2/Hz]'], p0 = hint, sigma= trimmedPSD['std [V**2/Hz]'], absolute_sigma=True)
 
 #calculating calibration factor
 ans, cov = fit
 calibrationFactor = np.sqrt(ans[0]*np.pi*mass/(2*kb*T)) #[V/m]
-#STILL LACKS THE UNCERTAINTY!!!!
-error = 1
+#calculating the error
+#contribution from D
+Dcont = cov[0,0]*(0.5*(1/calibrationFactor)*((np.pi*mass)/(2*kb*T)))**2
+#contribution from mass
+deltaMass = rho*4*np.pi*radius**2*radiusError
+massCont = deltaMass**2*(0.5*(1/calibrationFactor)*((np.pi*ans[0])/(2*kb*T)))**2
+#contribution from temperature
+tempCont = tempError**2*(0.5*(1/calibrationFactor)*((np.pi*ans[0]*mass)/(2*kb*T**2)))**2
+#evaluating the error
+error = np.sqrt(Dcont + massCont + tempCont)
 
 
 ########################################
@@ -348,8 +377,8 @@ plt.rcParams["axes.linewidth"] = 1
 
 ax = plt.gca()
 
-ax.scatter(trimmedFreq,trimmedPSD,label = 'trimmed PSD' , s = 10)
-ax.plot(trimmedFreq,modelSimplified(trimmedFreq,ans[0],ans[1],ans[2],ans[3]), 'r',label='fitted function')
+ax.scatter(trimmedPSD['freq [Hz]'],trimmedPSD['power [V**2/Hz]'],label = 'trimmed PSD' , s = 10)
+ax.plot(trimmedPSD['freq [Hz]'],modelSimplified(trimmedPSD['freq [Hz]'],ans[0],ans[1],ans[2],ans[3]), 'r',label='fitted function')
 
 ax.set_yscale('log')
 ax.set_xscale('log')
@@ -361,7 +390,7 @@ plt.tight_layout()
 
 outputFile = os.path.join(outputFolder,'trimmedPSDwithFIT.png')
 plt.savefig(outputFile)
-print("\nThe calibration factor is %.2f" % (calibrationFactor/1e6) + " +-  %.2f" % (error/1e6) + " [mV/nm]")
+print("\nThe calibration factor is %f" % (calibrationFactor/1e6) + " +-  %f" % (error/1e6) + " [mV/nm]")
 
 #############################
 #writing experience info txt#
@@ -380,7 +409,7 @@ lines = ['Experiment info',
          'Num. traces: '+str(N),
          'Coupling: '+coupling,
          'Description: '+experimentDescription,
-         "\nThe calibration factor is %.2f" % (calibrationFactor/1e6) + " +-  %.2f" % (error/1e6) + " [mV/nm]"
+         "The calibration factor is %f" % (calibrationFactor/1e6) + " +-  %f" % (error/1e6) + " [mV/nm]"
          ]
 
 with open(os.path.join(rootFolder,'experimentInfo.txt'), 'w') as f:
