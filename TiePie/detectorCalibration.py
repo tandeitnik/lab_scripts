@@ -210,8 +210,6 @@ if saveRawData == 1:
 
 print("calculating PSD")
 
-powerList = []
-stdList = []
 
 #evaluating the PSD
 if welchMethod == 1: #if welch method is ON
@@ -219,6 +217,7 @@ if welchMethod == 1: #if welch method is ON
     #evaluates the PSD for the first trace
     freq, power = signal.welch(dataList[0][channel], f, window = 'hamming', nperseg = int(len(dataList[0][channel])/windows))
     powerArray = np.zeros([N,len(freq)])
+    powerArray[0,:] = power
     
     #evaluates the PSD for the subsequent traces and sum
     for i in range(1,len(data)):
@@ -231,6 +230,7 @@ else: #if welch method is OFF
     #evaluates the PSD for the first trace
     freq, power = signal.periodogram(dataList[0][channel], f, scaling='density')
     powerArray = np.zeros([N,len(freq)])
+    powerArray[0,:] = power
     
     #evaluates the PSD for the subsequent traces and sum
     for i in range(1,len(data)):
@@ -340,7 +340,7 @@ for i in range(len(trimmedPSD)):
 #3) evaluate the hints
 w_0_hint = f_0_hint*2*np.pi
 w_r = f_r*2*np.pi
-w_l = f_l*np.pi
+w_l = f_l*np.pi*2
 
 gamma_hint = np.sqrt( ((w_0_hint**2-w_l**2)**2 - (w_0_hint**2-w_r**2)**2) / (w_r**2 - w_l**2))
 D_hint = Sm*gamma_hint*w_0_hint**2
@@ -352,17 +352,18 @@ fit = curve_fit(modelSimplified,trimmedPSD['f [Hz]'],trimmedPSD['power [V**2/Hz]
 
 #calculating calibration factor
 ans, cov = fit
-calibrationFactor = np.sqrt(ans[0]*np.pi*mass/(2*kb*T)) #[V/m]
+calibrationFactor = np.sqrt(ans[0]*mass/(4*kb*T)) #[V/m]
 #calculating the error
-#contribution from D
-Dcont = cov[0,0]*(0.5*(1/calibrationFactor)*((np.pi*mass)/(2*kb*T)))**2
-#contribution from mass
+#1) partial derivatives
+dcdD = 0.5*calibrationFactor/ans[0]
+dcdm = 0.5*calibrationFactor/mass
+dcdT = 0.5*calibrationFactor/T
+
+#2) calculating delta mass
 deltaMass = rho*4*np.pi*radius**2*radiusError
-massCont = deltaMass**2*(0.5*(1/calibrationFactor)*((np.pi*ans[0])/(2*kb*T)))**2
-#contribution from temperature
-tempCont = tempError**2*(0.5*(1/calibrationFactor)*((np.pi*ans[0]*mass)/(2*kb*T**2)))**2
-#evaluating the error
-error = np.sqrt(Dcont + massCont + tempCont)
+
+#3) putting all together
+error = np.sqrt(dcdD**2*cov[0,0] + dcdm**2*deltaMass**2 + dcdT**2*tempError**2)
 
 
 ########################################
