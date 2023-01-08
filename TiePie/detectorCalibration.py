@@ -179,65 +179,60 @@ for n in tqdm(range(N)):
     # Put data into a data frame
     size = len(data[0])
     df = pd.DataFrame({'t':np.linspace(0,acqTime,size), 'ch1':data[0], 'ch2':data[1]})
-
-    #putdF into a list
-    dataList.append(df)
     
+    #Calculating PSD
+    if welchMethod == 1: #if welch method is ON
+    
+        if n == 0: #first round
+    
+            freq, power = signal.welch(df[channel], f, window = 'hamming', nperseg = int(len(df[channel])/windows))
+            powerArray = np.zeros([N,len(freq)])
+            powerArray[0,:] = power
+            
+        else: #subsequent rounds
+        
+            freq, power = signal.welch(df[channel], f, window = 'hamming', nperseg = int(len(df[channel])/windows))
+            powerArray[n,:] = power
+    
+        
+    else: #if welch method is OFF
+        
+        if n == 0: #first round
+        
+            #evaluates the PSD for the first trace
+            freq, power = signal.periodogram(df[channel], f, scaling='density')
+            powerArray = np.zeros([N,len(freq)])
+            powerArray[0,:] = power
+        
+        else: #subsequent rounds
+
+            
+            freq, power = signal.periodogram(df[channel], f, scaling='density')
+            powerArray[n,:] = power
+
+    #################
+    #saving the data#
+    #################
+
+    if saveRawData == 1:
+        
+        #putdF into a list
+        dataList.append(df)
+        
+        if n == (N-1): #it is the final round, save the data!
+        
+            for n in range(N):
+                
+                outputFile = os.path.join(outputFolder,tracesNumberList[n])
+                dataList[n].to_pickle(outputFile)
+
     #delete original df to save space
     del df
 
 # Close oscilloscope:
 del scp
 
-
-#################
-#saving the data#
-#################
-
-if saveRawData == 1:
-
-    print("saving data")
-    
-    for n in tqdm(range(N)):
-        
-        outputFile = os.path.join(outputFolder,tracesNumberList[n])
-        dataList[n].to_pickle(outputFile)
-
-
-#####################
-#evaluating full PSD#
-#####################
-
-print("calculating PSD")
-
-
-#evaluating the PSD
-if welchMethod == 1: #if welch method is ON
-    
-    #evaluates the PSD for the first trace
-    freq, power = signal.welch(dataList[0][channel], f, window = 'hamming', nperseg = int(len(dataList[0][channel])/windows))
-    powerArray = np.zeros([N,len(freq)])
-    powerArray[0,:] = power
-    
-    #evaluates the PSD for the subsequent traces and sum
-    for i in range(1,len(data)):
-        freq, powerTemp = signal.welch(dataList[i][channel], f, window = 'hamming', nperseg = int(len(dataList[i][channel])/windows))
-        powerArray[i,:] = power
-        
-    
-else: #if welch method is OFF
-    
-    #evaluates the PSD for the first trace
-    freq, power = signal.periodogram(dataList[0][channel], f, scaling='density')
-    powerArray = np.zeros([N,len(freq)])
-    powerArray[0,:] = power
-    
-    #evaluates the PSD for the subsequent traces and sum
-    for i in range(1,len(data)):
-        
-        freq, powerTemp = signal.periodogram(dataList[i], f, scaling='density')
-        powerArray[i,:] = power
-
+# Calculate mean PSD and standard error
 df_PSD = pd.DataFrame({'f [Hz]':freq, 'power [V**2/Hz]':np.mean(powerArray, axis = 0), 'std [V**2/Hz]':np.std(powerArray,axis = 0)})
 
 #saving the data frame with PSD
