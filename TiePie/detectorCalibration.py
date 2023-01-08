@@ -157,8 +157,6 @@ tracesNumberList = generateOrderedNumbers(N)
 outputFolder = os.path.join(rootFolder,"calibrationData")
 os.mkdir(outputFolder)
 
-dataList = []
-
 print("acquiring data")
 
 for n in tqdm(range(N)):    
@@ -216,15 +214,8 @@ for n in tqdm(range(N)):
 
     if saveRawData == 1:
         
-        #putdF into a list
-        dataList.append(df)
-        
-        if n == (N-1): #it is the final round, save the data!
-        
-            for n in range(N):
-                
-                outputFile = os.path.join(outputFolder,tracesNumberList[n])
-                dataList[n].to_pickle(outputFile)
+        outputFile = os.path.join(outputFolder,tracesNumberList[n])
+        df.to_pickle(outputFile)
 
     #delete original df to save space
     del df
@@ -239,7 +230,7 @@ df_PSD = pd.DataFrame({'f [Hz]':freq, 'power [V**2/Hz]':np.mean(powerArray, axis
 outputFile = os.path.join(outputFolder,'PSD.pkl')
 df_PSD.to_pickle(outputFile)
 
-del powerArray, dataList
+del powerArray
 
 
 #################################################
