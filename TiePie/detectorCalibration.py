@@ -12,6 +12,9 @@ import pandas as pd
 import scipy.signal as signal
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
+from uncertainties import ufloat
+from uncertainties.umath import *
+from uncertainties import unumpy
 import beepy
 
 ####################
@@ -47,13 +50,9 @@ welchMethod = 1 #if welchMethod == 1, then Welch method is used (which is quicke
 #####################
 
 kb = 1.380649e-23 # [m2 kg s-2 K-1]
-T = 293.15 #[K]
-tempError = 1 #[K]
+T = ufloat(293.15, 1) #[K]
 rho = 2200 #[kg / m3]
-radius = 143e-9/2 #[m]
-radiusError = 10e-9 #[m]
-volume = (4/3)*np.pi*radius**3 #[m**3]
-mass = volume*rho #[kg]
+radius = ufloat(143e-9/2 , 10e-9) #[m]
 
 
 ######################
@@ -224,7 +223,8 @@ for n in tqdm(range(N)):
 del scp
 
 # Calculate mean PSD and standard error
-df_PSD = pd.DataFrame({'f [Hz]':freq, 'power [V**2/Hz]':np.mean(powerArray, axis = 0), 'std [V**2/Hz]':np.std(powerArray,axis = 0)})
+PSD_voltage = unumpy.uarray( np.mean(powerArray, axis = 0) , np.std(powerArray,axis = 0) )
+df_PSD = pd.DataFrame({'f [Hz]':freq, 'power [V**2/Hz]':PSD_voltage})
 
 #saving the data frame with PSD
 outputFile = os.path.join(outputFolder,'PSD.pkl')
@@ -244,7 +244,7 @@ plt.rcParams["axes.linewidth"] = 1
 
 ax = plt.gca()
 
-ax.scatter(df_PSD['f [Hz]'] ,df_PSD['power [V**2/Hz]'], s = 10)
+ax.scatter(df_PSD['f [Hz]'] ,unumpy.nominal_values(df_PSD['power [V**2/Hz]']), s = 10)
 ax.set_xlim([1000, f/2])
         
 ax.set_yscale('log')
@@ -284,7 +284,7 @@ deltaFreq = freq[1]-freq[0]
 idxLeft = int(leftCut/deltaFreq)
 idxRight = int(rightCut/deltaFreq)
 
-trimmedPSD = pd.DataFrame({'f [Hz]':df_PSD['f [Hz]'][idxLeft:idxRight], 'power [V**2/Hz]':df_PSD['power [V**2/Hz]'][idxLeft:idxRight], 'std [V**2/Hz]':df_PSD['std [V**2/Hz]'][idxLeft:idxRight]})
+trimmedPSD = pd.DataFrame({'f [Hz]':df_PSD['f [Hz]'][idxLeft:idxRight], 'power [V**2/Hz]':df_PSD['power [V**2/Hz]'][idxLeft:idxRight]})
 #saving the data frame with trimmed PSD
 outputFile = os.path.join(outputFolder,'trimmedPSD.pkl')
 trimmedPSD.to_pickle(outputFile)
@@ -305,21 +305,21 @@ def modelSimplified(f,D,gamma,f_0,cst):
 #discovering hints for fit
 
 #1) discover max value of the PSD
-Sm = np.max(trimmedPSD['power [V**2/Hz]'])
+Sm = unumpy.nominal_values(max(trimmedPSD['power [V**2/Hz]']))
 
 #2) discover approximate frequency where the PSD is at half value
 for i in range(len(trimmedPSD)):
     
-    if trimmedPSD['power [V**2/Hz]'][i] >= Sm:
+    if unumpy.nominal_values(trimmedPSD['power [V**2/Hz]'][i]) >= Sm:
         f_0_hint  = trimmedPSD['f [Hz]'][i]
         break
 
 for i in range(len(trimmedPSD)):
 
-    if trimmedPSD['power [V**2/Hz]'][i] >= Sm/2 and (('f_l' in locals()) == False):
+    if unumpy.nominal_values(trimmedPSD['power [V**2/Hz]'][i]) >= Sm/2 and (('f_l' in locals()) == False):
         f_l = trimmedPSD['f [Hz]'][i]
         
-    if trimmedPSD['power [V**2/Hz]'][i] <= Sm/2 and (trimmedPSD['f [Hz]'][i] > f_0_hint):
+    if unumpy.nominal_values(trimmedPSD['power [V**2/Hz]'][i]) <= Sm/2 and (trimmedPSD['f [Hz]'][i] > f_0_hint):
         f_r = trimmedPSD['f [Hz]'][i]
         break
     
@@ -330,26 +330,23 @@ w_l = f_l*np.pi*2
 
 gamma_hint = np.sqrt( ((w_0_hint**2-w_l**2)**2 - (w_0_hint**2-w_r**2)**2) / (w_r**2 - w_l**2))
 D_hint = Sm*gamma_hint*w_0_hint**2
-cst_hint = np.min(trimmedPSD['power [V**2/Hz]'])
+cst_hint = unumpy.nominal_values(np.min(trimmedPSD['power [V**2/Hz]']))
 hint = [D_hint,gamma_hint,f_0_hint,cst_hint]
 
 #fitting
-fit = curve_fit(modelSimplified,trimmedPSD['f [Hz]'],trimmedPSD['power [V**2/Hz]'], p0 = hint, sigma= trimmedPSD['std [V**2/Hz]'], absolute_sigma=True)
-
-#calculating calibration factor
+fit = curve_fit(modelSimplified,trimmedPSD['f [Hz]'],unumpy.nominal_values(trimmedPSD['power [V**2/Hz]']), p0 = hint, sigma= unumpy.std_devs(trimmedPSD['power [V**2/Hz]']), absolute_sigma=True)
 ans, cov = fit
-calibrationFactor = np.sqrt(ans[0]*mass/(4*kb*T)) #[V/m]
-#calculating the error
-#1) partial derivatives
-dcdD = 0.5*calibrationFactor/ans[0]
-dcdm = 0.5*calibrationFactor/mass
-dcdT = 0.5*calibrationFactor/T
 
-#2) calculating delta mass
-deltaMass = rho*4*np.pi*radius**2*radiusError
+##############################################################
+#calculating calibration factor with appropiate uncertainties#
+##############################################################
 
-#3) putting all together
-error = np.sqrt(dcdD**2*cov[0,0] + dcdm**2*deltaMass**2 + dcdT**2*tempError**2)
+volume = (4/3)*np.pi*radius**3 #[m**3]
+mass = volume*rho #[kg]
+
+D = ufloat(ans[0] , np.sqrt(cov[0,0]))
+
+calibrationFactor = sqrt(D*mass/(4*kb*T)) #[V/m]
 
 
 ########################################
@@ -364,8 +361,8 @@ plt.rcParams["axes.linewidth"] = 1
 
 ax = plt.gca()
 
-ax.scatter(trimmedPSD['freq [Hz]'],trimmedPSD['power [V**2/Hz]'],label = 'trimmed PSD' , s = 10)
-ax.plot(trimmedPSD['freq [Hz]'],modelSimplified(trimmedPSD['freq [Hz]'],ans[0],ans[1],ans[2],ans[3]), 'r',label='fitted function')
+ax.scatter(trimmedPSD['f [Hz]'],unumpy.nominal_values(trimmedPSD['power [V**2/Hz]']),label = 'trimmed PSD' , s = 10)
+ax.plot(trimmedPSD['f [Hz]'],modelSimplified(trimmedPSD['f [Hz]'],ans[0],ans[1],ans[2],ans[3]), 'r',label='fitted function')
 
 ax.set_yscale('log')
 ax.set_xscale('log')
@@ -377,7 +374,7 @@ plt.tight_layout()
 
 outputFile = os.path.join(outputFolder,'trimmedPSDwithFIT.png')
 plt.savefig(outputFile)
-print("\nThe calibration factor is %f" % (calibrationFactor/1e6) + " +-  %f" % (error/1e6) + " [mV/nm]")
+print('\nThe calibration factor is: {:.2u}'.format(calibrationFactor*1e-6)+ " [mV/nm]" )
 
 #############################
 #writing experience info txt#
@@ -396,7 +393,7 @@ lines = ['Experiment info',
          'Num. traces: '+str(N),
          'Coupling: '+coupling,
          'Description: '+experimentDescription,
-         "The calibration factor is %f" % (calibrationFactor/1e6) + " +-  %f" % (error/1e6) + " [mV/nm]"
+         '\nThe calibration factor is: {:.2u}'.format(calibrationFactor*1e-6)+ " [mV/nm]"
          ]
 
 with open(os.path.join(rootFolder,'experimentInfo.txt'), 'w') as f:

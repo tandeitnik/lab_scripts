@@ -12,6 +12,9 @@ import pandas as pd
 import scipy.signal as signal
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
+from uncertainties import ufloat
+from uncertainties.umath import *
+from uncertainties import unumpy
 
 ####################
 #PARAMETERS SECTION#
@@ -51,7 +54,7 @@ welchMethod = 1 #if welchMethod == 1, then Welch method is used (which is quicke
 #calibration parameters
 #####################
 
-calibrationFactor = 1 #detector calibration factor [V/m]
+calibrationFactor = ufloat(1,0.01) #detector calibration factor [V/m] got from the detectorCalibration script. Pass as a ufloat variable.
 leftCut = 70_000  #left frequency cut - try to use the same as the one used for the detector calibration
 rightCut = 110_000 #right frequency cut - try to use the same as the one used for the detector calibration
 hint = [D_hint,gamma_hint,f_0_hint,cst_hint] #hints used to fit the lorentzian - use the same hints discovered at the detector calibration
@@ -60,13 +63,10 @@ hint = [D_hint,gamma_hint,f_0_hint,cst_hint] #hints used to fit the lorentzian -
 #####################
 
 kb = 1.380649e-23 # [m2 kg s-2 K-1]
-T = 293.15 #[K]
-tempError = 1 #[K]
+T = ufloat(293.15, 1) #[K]
 rho = 2200 #[kg / m3]
-radius = 143e-9/2 #[m]
-radiusError = 10e-9 #[m]
-volume = (4/3)*np.pi*radius**3 #[m**3]
-mass = volume*rho #[kg]
+radius = ufloat(143e-9/2 , 10e-9) #[m]
+
 
 ######################
 #connecting to TiePie#
@@ -226,7 +226,7 @@ for rep in range(reps):
         
         # Put data into a data frame
         size = len(data[0])
-        df = pd.DataFrame({'t':np.linspace(0,acqTime,size), 'ch1':data[0]/calibrationFactor, 'ch2':data[1]/calibrationFactor})
+        df = pd.DataFrame({'t':np.linspace(0,acqTime,size), 'ch1':data[0], 'ch2':data[1]})
         
         if n == 0: #first run
         
@@ -250,14 +250,17 @@ for rep in range(reps):
             powerArray[n,:] = power
     
     #evaluates final PSD and stores it
-    PSD = pd.DataFrame({'f [Hz]':freq, 'power [m**2/Hz]':np.mean(powerArray, axis = 0), 'std [m**2/Hz]':np.std(powerArray,axis = 0)})
+    PSD_voltage = unumpy.uarray( np.mean(powerArray, axis = 0) , np.std(powerArray,axis = 0) )
+    PSD_meters = PSD_voltage/calibrationFactor
+    
+    PSD = pd.DataFrame( { 'f [Hz]':freq, 'power [m**2/Hz]':PSD_meters})
     PSDList.append(PSD)
     
     #trimming
     deltaFreq = freq[1]-freq[0]
     idxLeft = int(leftCut/deltaFreq)
     idxRight = int(rightCut/deltaFreq)
-    trPSD = pd.DataFrame({'f [Hz]':PSD['f [Hz]'][idxLeft:idxRight], 'power [m**2/Hz]':PSD['power [m**2/Hz]'][idxLeft:idxRight], 'std [m**2/Hz]':PSD['std [m**2/Hz]'][idxLeft:idxRight]})
+    trPSD = pd.DataFrame({'f [Hz]':PSD['f [Hz]'][idxLeft:idxRight], 'power [m**2/Hz]':PSD['power [m**2/Hz]'][idxLeft:idxRight]})
     trimmedPSD.append(trPSD)
     
     #saving stuff
@@ -285,21 +288,26 @@ def modelSimplified(f,D,gamma,f_0,cst):
     
     return  numerator/denominator + cst
 
-elecForce = np.zeros(reps)
-elecForceError = np.zeros(reps)
-ansList = []
-covList = []
+elecForce = unumpy.uarray([0]*reps,[0]*reps)
+
+#calculating mass with error
+volume = (4/3)*np.pi*radius**3 #[m**3]
+mass = volume*rho #[kg]
 
 for volt in range(reps):
-    
+
     #first fitting a lorentzian to the trimmedPSD
-    fit = curve_fit(modelSimplified,trimmedPSD[volt]['f [Hz]'],trimmedPSD[volt]['power [m**2/Hz]'], p0 = hint, sigma= trimmedPSD[volt]['std [m**2/Hz]'], absolute_sigma=True)
+    fit = curve_fit(modelSimplified,trimmedPSD[volt]['f [Hz]'],unumpy.nominal_values(trimmedPSD[volt]['power [m**2/Hz]']), p0 = hint, sigma= unumpy.std_devs(trimmedPSD[volt]['power [m**2/Hz]']), absolute_sigma=True)
     ans, cov = fit
-    ansList.append(ans)
-    covList.append(cov)
     
-    #PSD value at the drivint frequency
-    S_drive = modelSimplified(drivingFreq,ans[0],ans[1],ans[2],ans[3])
+    #unpacking fit parameters and transforming them in floats with uncertainty
+    D_fit = ufloat(ans[0], np.sqrt(cov[0][0]))
+    gamma_fit = ufloat(ans[1], np.sqrt(cov[1][1]))
+    f_0_fit = ufloat(ans[2], np.sqrt(cov[2][2]))
+    cst_fit = ufloat(ans[3], np.sqrt(cov[3][3]))
+    
+    #PSD value at the driving frequency
+    S_drive = modelSimplified(drivingFreq,D_fit,gamma_fit,f_0_fit,cst_fit)
     
     #discovering the top height
     deltaFreq = trimmedPSD[volt]['f [Hz]'][1] -trimmedPSD[volt]['f [Hz]'][0]
@@ -308,57 +316,21 @@ for volt in range(reps):
     idxRight = int(idxCentral+(freqRange/deltaFreq))
     
     top = max(trimmedPSD[volt]['power [m**2/Hz]'][idxLeft:idxRight])
-    #getting index of top value, it will be used later
-    for i in range(len(trimmedPSD[volt]['power [m**2/Hz]'][idxLeft:idxRight])):
-        
-        if trimmedPSD[volt]['power [m**2/Hz]'][idxLeft+i] == top:
-            
-            idxTop = idxLeft+i
-            break
-
+    
     h = top-S_drive
     
     #calculating force
     tau = acqTime/2
-    w0 = 2*np.pi*ans[2]
+    w0 = 2*np.pi*f_0_fit
     wDrive = 2*np.pi*drivingFreq
     DeltaDrive = w0**2 - wDrive**2
-    gamma = ans[1]
-    A = (h/tau)*mass**2*(DeltaDrive**2 + gamma**2*wDrive**2)
     
-    force = np.sqrt( A )
+    force = np.sqrt( (h/tau)*mass**2*(DeltaDrive**2 + gamma_fit**2*wDrive**2) )
     elecForce[volt] = force
 
-    #calculating error
     
-    #1) partial derivatives
-    dFdh = 0.5*force/h
-    dFdm = force/mass
-    dFdgamma = A**(-0.5)*gamma*wDrive**2*mass**2*h/tau
-    dFdw_0 = A**(-0.5)*mass**2*h/tau*(-2*w0)
-    
-    #2) errors of parameters
-    #a) height error is more envolved, additional partial derivatives must be evaluated
-    #calculating partial derivatives to evaluate error of the S_drive = b (b of bottom)
-    D = ans[0]
-    dbdD = S_drive/D
-    dbdgamma = (D*(DeltaDrive**2+gamma**2*wDrive**2) - 2*D*gamma**2*wDrive**2) / (DeltaDrive**2+gamma**2*wDrive**2)**2
-    dbdw_0 = (-1*D*gamma*4*DeltaDrive*w0) / (DeltaDrive**2+gamma**2*wDrive**2)**2
-    
-    deltab = np.sqrt( dbdD**2*cov[0,0] + dbdgamma**2*cov[1,1] + dbdw_0*cov[1,1]*(2*np.pi)**2)
-    deltaTop = trimmedPSD[volt]['std [m**2/Hz]'][idxTop]
-    
-    deltaHeight = np.sqrt(deltab**2 + deltaTop**2)
-    
-    #error of the mass
-    deltaMass = rho*4*np.pi*radius**2*radiusError
-    
-    #geathering all together to evaluate the error of the force
-    elecForceError[volt] =  np.sqrt(dFdh**2*deltaHeight**2 + dFdm**2*deltaMass**2 + dFdgamma**2*cov[1,1] + dFdw_0**2*cov[1,1]*(2*np.pi)**2 ) 
-
-#putting voltages, force and erros in a data frame
-
-df = pd.DataFrame({'voltage [V]':voltageValues , 'electric force [N]':elecForce , 'error [N]':elecForceError})
+#putting results in a data frame and saving
+df = pd.DataFrame({'voltage [V]':voltageValues , 'electric force [N]':elecForce})
 outputFile = os.path.join(outputFolder,'voltageVSforce.pkl')
 df.to_pickle(outputFile)
 
@@ -371,15 +343,14 @@ def linearRegression(x,a,b):
     return a*x+b
 
 #discovering hints
-hint_a = (df['electric force [N]'][-1] - df['electric force [N]'][0])/(df['voltage [V]'][-1] - df['voltage [V]'][0])
-hint_b = df['electric force [N]'][-1] - hint_a*df['voltage [V]'][-1]
+hint_a = (unumpy.nominal_values(df['electric force [N]'][len(df)-1]) - unumpy.nominal_values(df['electric force [N]'][0]))/(unumpy.nominal_values(df['voltage [V]'][len(df)-1]) - unumpy.nominal_values(df['voltage [V]'][0]))
+hint_b = unumpy.nominal_values(df['electric force [N]'][len(df)-1]) - hint_a*unumpy.nominal_values(df['voltage [V]'][len(df-1)])
 
-
-fit = curve_fit(linearRegression, df['voltage [V]'], df['electric force [N]'] , p0 = [hint_a,hint_b], sigma= df['error [N]'], absolute_sigma=True)
+fit = curve_fit(linearRegression, df['voltage [V]'], unumpy.nominal_values(df['electric force [N]']) , p0 = [hint_a,hint_b], sigma= unumpy.std_devs(df['electric force [N]']), absolute_sigma=True)
 ans, cov = fit
 
-electricalCalibrationFactor = ans[0]
-error = np.sqrt(cov[0,0])
+electricalCalibrationFactor = ufloat(ans[0] , np.sqrt(cov[0,0]) ) #[N/V]
+
 
 ########################################
 #saving results and showing to the user#
@@ -393,7 +364,7 @@ plt.rcParams["axes.linewidth"] = 1
 
 ax = plt.gca()
 
-ax.errorbar(df['voltage [V]'], df['electric force [N]']*1e12, yerr=df['error [N]']*1e12, xerr=None , label = 'measured electric force')
+ax.errorbar(df['voltage [V]'], unumpy.nominal_values(df['electric force [N]'])*1e12, yerr=unumpy.std_devs(df['electric force [N]'])*1e12, xerr=None , label = 'measured electric force')
 ax.plot(df['voltage [V]'],linearRegression(df['voltage [V]'],ans[0],ans[1])*1e12, label = 'linear fit')
 
 ax.legend()
@@ -404,7 +375,7 @@ plt.tight_layout()
 
 outputFile = os.path.join(outputFolder,'forceVSvoltageFIT.png')
 plt.savefig(outputFile)
-print("\nThe calibration factor is %f" % (electricalCalibrationFactor*1e9) + " +-  %f" % (error*1e9) + " [pN/mV]")
+print("\nThe calibration factor {:.2u}" .format(electricalCalibrationFactor*1e9) + "[pN/mV]")
 
 #############################
 #writing experience info txt#
@@ -423,7 +394,7 @@ lines = ['Experiment info',
          'Num. traces: '+str(N),
          'Coupling: '+coupling,
          'Description: '+experimentDescription,
-         'The calibration factor is %f' % (electricalCalibrationFactor*1e9) + " +-  %f" % (error*1e9) + " [pN/mV]"
+         "\nThe calibration factor {:.2u}" .format(electricalCalibrationFactor*1e9) + "[pN/mV]"
          ]
 
 with open(os.path.join(rootFolder,'experimentInfo.txt'), 'w') as f:
