@@ -27,7 +27,7 @@ import beepy
 
 f = int(1e6) #sampling frequency [Hz]
 acqTime = 0.1 # total acquisiton time [s]
-N = 1000 # number of traces
+N = 200 # number of traces
 rootFolder = r"C:\Users\Labq\Desktop\Daniel R.T\Nova pasta\calibrationTest" #output folder where the calibration data will be saved
 coupling= "ACV" #coupling type, can be ACV or DCV.
 voltageRange = 1e-3 #oscilloscope range
@@ -52,7 +52,7 @@ welchMethod = 1 #if welchMethod == 1, then Welch method is used (which is quicke
 kb = 1.380649e-23 # [m2 kg s-2 K-1]
 T = ufloat(293.15, 1) #[K]
 rho = 2200 #[kg / m3]
-radius = ufloat(143e-9/2 , 10e-9) #[m]
+radius = ufloat(143e-9/2 , 0.004e-6) #[m]
 
 
 ######################
@@ -393,7 +393,11 @@ lines = ['Experiment info',
          'Num. traces: '+str(N),
          'Coupling: '+coupling,
          'Description: '+experimentDescription,
-         '\nThe calibration factor is: {:.2u}'.format(calibrationFactor*1e-6)+ " [mV/nm]"
+         'The calibration factor is: {:.2u}'.format(calibrationFactor*1e-6)+ " [mV/nm]",
+         'Hint D is '+str(hint[0]),
+         'Hint gamma is '+str(hint[1]),
+         'Hint f_0 is '+str(hint[2]),
+         'Hint cst is '+str(hint[3]),
          ]
 
 with open(os.path.join(outputFolder,'experimentInfo.txt'), 'w') as f:
