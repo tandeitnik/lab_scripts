@@ -396,7 +396,7 @@ lines = ['Experiment info',
          '\nThe calibration factor is: {:.2u}'.format(calibrationFactor*1e-6)+ " [mV/nm]"
          ]
 
-with open(os.path.join(rootFolder,'experimentInfo.txt'), 'w') as f:
+with open(os.path.join(outputFolder,'experimentInfo.txt'), 'w') as f:
     for line in lines:
         f.write(line)
         f.write('\n')
