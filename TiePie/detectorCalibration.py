@@ -26,9 +26,9 @@ import beepy
 #####################
 
 f = int(1e6) #sampling frequency [Hz]
-acqTime = 0.04 # total acquisiton time [s]
-N = 100 # number of traces
-rootFolder = r"C:\Users\Labq\Desktop\Daniel R.T\Nova pasta\data\backward-noparticle" #output folder where the calibration data will be saved
+acqTime = 0.1 # total acquisiton time [s]
+N = 1000 # number of traces
+rootFolder = r"C:\Users\Labq\Desktop\Daniel R.T\Nova pasta\calibrationTest" #output folder where the calibration data will be saved
 coupling= "ACV" #coupling type, can be ACV or DCV.
 voltageRange = 1e-3 #oscilloscope range
 autoRange = 1 #if it equals to 1, voltageRange will be ignored and an automatic range will be determined
@@ -245,11 +245,11 @@ plt.rcParams["axes.linewidth"] = 1
 ax = plt.gca()
 
 ax.scatter(df_PSD['f [Hz]'] ,unumpy.nominal_values(df_PSD['power [V**2/Hz]']), s = 10)
+ax.set_ylim([min(unumpy.nominal_values(df_PSD['power [V**2/Hz]'][1:])), max(unumpy.nominal_values(df_PSD['power [V**2/Hz]']))])
 ax.set_xlim([1000, f/2])
         
 ax.set_yscale('log')
 ax.set_xscale('log')
-ax.legend()
 ax.set(ylabel=r'$V^2$/Hz')
 ax.set(xlabel=r'$\Omega/2\pi$ [Hz]')
 ax.grid(alpha = 0.4)
@@ -267,9 +267,9 @@ agreementTest = 0
 
 while agreementTest == 0:
     
-    leftCut = input("\nEnter a frequency value for the minimum frequency and press ENTER: ")
-    rightCut = input("\nEnter a frequency value for the maximum frequency and press ENTER: ")
-    print("\nYou entered "+leftCut+"Hz for the minimum frequency and "+rightCut+"Hz for the maximum frequency.")
+    leftCut = int(input("\nEnter a frequency value for the minimum frequency and press ENTER: "))
+    rightCut = int(input("\nEnter a frequency value for the maximum frequency and press ENTER: "))
+    print("\nYou entered "+str(leftCut)+"Hz for the minimum frequency and "+str(rightCut)+"Hz for the maximum frequency.")
     agree = input("Do you agree? [y/n]")
     
     while (agree != 'y') and  (agree != 'n'):
@@ -284,7 +284,7 @@ deltaFreq = freq[1]-freq[0]
 idxLeft = int(leftCut/deltaFreq)
 idxRight = int(rightCut/deltaFreq)
 
-trimmedPSD = pd.DataFrame({'f [Hz]':df_PSD['f [Hz]'][idxLeft:idxRight], 'power [V**2/Hz]':df_PSD['power [V**2/Hz]'][idxLeft:idxRight]})
+trimmedPSD = pd.DataFrame({'f [Hz]':df_PSD['f [Hz]'][idxLeft:idxRight], 'power [V**2/Hz]':df_PSD['power [V**2/Hz]'][idxLeft:idxRight]}).reset_index()
 #saving the data frame with trimmed PSD
 outputFile = os.path.join(outputFolder,'trimmedPSD.pkl')
 trimmedPSD.to_pickle(outputFile)
@@ -328,7 +328,7 @@ w_0_hint = f_0_hint*2*np.pi
 w_r = f_r*2*np.pi
 w_l = f_l*np.pi*2
 
-gamma_hint = np.sqrt( ((w_0_hint**2-w_l**2)**2 - (w_0_hint**2-w_r**2)**2) / (w_r**2 - w_l**2))
+gamma_hint = np.sqrt( abs(((w_0_hint**2-w_l**2)**2 - (w_0_hint**2-w_r**2)**2) / (w_r**2 - w_l**2)))
 D_hint = Sm*gamma_hint*w_0_hint**2
 cst_hint = unumpy.nominal_values(np.min(trimmedPSD['power [V**2/Hz]']))
 hint = [D_hint,gamma_hint,f_0_hint,cst_hint]
@@ -387,7 +387,7 @@ lines = ['Experiment info',
          '',
          'Date and time: '+now.strftime("%d/%m/%Y %H:%M:%S"),
          'Device: TiePie',
-         'Device: Detector calibration',
+         'Task: Detector calibration',
          'Samp. freq.: '+str(f),
          'acq. time.: '+str(acqTime),
          'Num. traces: '+str(N),
