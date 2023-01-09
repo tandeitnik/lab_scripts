@@ -22,8 +22,8 @@ from uncertainties import unumpy
 
 #experiment setup
 #####################
-reps = 20 #number of different voltages the data is collected - collect ascending
-drivingFreq = 83e3 #driving harmonic frequency applyed
+reps = 10 #number of different voltages the data is collected - collect ascending
+drivingFreq = 97_000 #driving harmonic frequency applyed
 freqRange = 100 #frequency window used arount the drivingFreq
 
 
@@ -31,9 +31,9 @@ freqRange = 100 #frequency window used arount the drivingFreq
 #####################
 
 f = int(1e6) #sampling frequency [Hz]
-acqTime = 0.04 # total acquisiton time [s]
+acqTime = 0.1 # total acquisiton time [s]
 N = 100 # number of traces
-rootFolder = r"C:\Users\Labq\Desktop\Daniel R.T\Nova pasta\data\backward-noparticle" #output folder where the calibration data will be saved
+rootFolder = r"C:\Users\Labq\Desktop\Daniel R.T\Nova pasta\calibrationTest" #output folder where the calibration data will be saved
 coupling= "ACV" #coupling type, can be ACV or DCV.
 voltageRange = 1e-3 #oscilloscope range
 autoRange = 1 #if it equals to 1, voltageRange will be ignored and an automatic range will be determined
@@ -46,7 +46,7 @@ experimentDescription = "Electrode calibration via harmonic driving force. Vacum
 #PSD setup
 #####################
 
-windows = 10 #number of windows used for the welch method
+windows = 4 #number of windows used for the welch method
 channel = 'ch1' #which channel to evaluate PSD, can be 'ch1' or 'ch2'
 welchMethod = 1 #if welchMethod == 1, then Welch method is used (which is quicker but it is an estimation). Otherwise, periodogram is used.
 
@@ -54,9 +54,9 @@ welchMethod = 1 #if welchMethod == 1, then Welch method is used (which is quicke
 #calibration parameters
 #####################
 
-calibrationFactor = ufloat(1,0.01) #detector calibration factor [V/m] got from the detectorCalibration script. Pass as a ufloat variable.
-leftCut = 70_000  #left frequency cut - try to use the same as the one used for the detector calibration
-rightCut = 110_000 #right frequency cut - try to use the same as the one used for the detector calibration
+calibrationFactor = ufloat(12094.750372156503, 2539.992851114553) #detector calibration factor [V/m] got from the detectorCalibration script. Pass as a ufloat variable.
+leftCut = 30_000  #left frequency cut - try to use the same as the one used for the detector calibration
+rightCut = 150_000 #right frequency cut - try to use the same as the one used for the detector calibration
 hint = [D_hint,gamma_hint,f_0_hint,cst_hint] #hints used to fit the lorentzian - use the same hints discovered at the detector calibration
 
 #physics setup
@@ -65,7 +65,7 @@ hint = [D_hint,gamma_hint,f_0_hint,cst_hint] #hints used to fit the lorentzian -
 kb = 1.380649e-23 # [m2 kg s-2 K-1]
 T = ufloat(293.15, 1) #[K]
 rho = 2200 #[kg / m3]
-radius = ufloat(143e-9/2 , 10e-9) #[m]
+radius = ufloat(143e-9/2 ,  0.004e-6) #[m]
 
 
 ######################
@@ -183,8 +183,8 @@ for rep in range(reps):
     input("Press ENTER to get next set of measurements...")
     
     #creating folder
-    outputFolder = os.path.join(rootFolder,"rep"+repsNumberList[rep])    
-    os.mkdir(outputFolder)
+    outputSubFolder = os.path.join(outputFolder,"rep"+repsNumberList[rep])    
+    os.mkdir(outputSubFolder)
 
     #getting autoRange if on
     if autoRange == 1:
@@ -260,7 +260,7 @@ for rep in range(reps):
     deltaFreq = freq[1]-freq[0]
     idxLeft = int(leftCut/deltaFreq)
     idxRight = int(rightCut/deltaFreq)
-    trPSD = pd.DataFrame({'f [Hz]':PSD['f [Hz]'][idxLeft:idxRight], 'power [m**2/Hz]':PSD['power [m**2/Hz]'][idxLeft:idxRight]})
+    trPSD = pd.DataFrame({'f [Hz]':PSD['f [Hz]'][idxLeft:idxRight], 'power [m**2/Hz]':PSD['power [m**2/Hz]'][idxLeft:idxRight]}).reset_index()
     trimmedPSD.append(trPSD)
     
     #saving stuff
@@ -311,11 +311,11 @@ for volt in range(reps):
     
     #discovering the top height
     deltaFreq = trimmedPSD[volt]['f [Hz]'][1] -trimmedPSD[volt]['f [Hz]'][0]
-    idxCentral = int(drivingFreq/deltaFreq)
+    idxCentral = int((drivingFreq-leftCut)/deltaFreq)
     idxLeft = int(idxCentral-(freqRange/deltaFreq))
     idxRight = int(idxCentral+(freqRange/deltaFreq))
     
-    top = max(trimmedPSD[volt]['power [m**2/Hz]'][idxLeft:idxRight])
+    top = max(unumpy.nominal_values(trimmedPSD[volt]['power [m**2/Hz]'][idxLeft:idxRight]))
     
     h = top-S_drive
     
@@ -325,14 +325,19 @@ for volt in range(reps):
     wDrive = 2*np.pi*drivingFreq
     DeltaDrive = w0**2 - wDrive**2
     
-    force = np.sqrt( (h/tau)*mass**2*(DeltaDrive**2 + gamma_fit**2*wDrive**2) )
+    force = sqrt( (h/tau)*mass**2*(DeltaDrive**2 + gamma_fit**2*wDrive**2) )
     elecForce[volt] = force
+    
+    #plt.plot(trimmedPSD[volt]['f [Hz]'],unumpy.nominal_values(trimmedPSD[volt]['power [m**2/Hz]']))
+    #plt.plot(trimmedPSD[volt]['f [Hz]'],modelSimplified(trimmedPSD[volt]['f [Hz]'],ans[0],ans[1],ans[2],ans[3]))
 
     
 #putting results in a data frame and saving
 df = pd.DataFrame({'voltage [V]':voltageValues , 'electric force [N]':elecForce})
 outputFile = os.path.join(outputFolder,'voltageVSforce.pkl')
 df.to_pickle(outputFile)
+
+#plt.plot(df['voltage [V]'],unumpy.nominal_values(df['electric force [N]']))
 
 ##################################################
 #MAKING LINEAR REGRESSION OF FORCE VERSUS VOLTAGE#
@@ -344,7 +349,7 @@ def linearRegression(x,a,b):
 
 #discovering hints
 hint_a = (unumpy.nominal_values(df['electric force [N]'][len(df)-1]) - unumpy.nominal_values(df['electric force [N]'][0]))/(unumpy.nominal_values(df['voltage [V]'][len(df)-1]) - unumpy.nominal_values(df['voltage [V]'][0]))
-hint_b = unumpy.nominal_values(df['electric force [N]'][len(df)-1]) - hint_a*unumpy.nominal_values(df['voltage [V]'][len(df-1)])
+hint_b = unumpy.nominal_values(df['electric force [N]'][len(df)-1]) - hint_a*unumpy.nominal_values(df['voltage [V]'][len(df)-1])
 
 fit = curve_fit(linearRegression, df['voltage [V]'], unumpy.nominal_values(df['electric force [N]']) , p0 = [hint_a,hint_b], sigma= unumpy.std_devs(df['electric force [N]']), absolute_sigma=True)
 ans, cov = fit
@@ -364,12 +369,12 @@ plt.rcParams["axes.linewidth"] = 1
 
 ax = plt.gca()
 
-ax.errorbar(df['voltage [V]'], unumpy.nominal_values(df['electric force [N]'])*1e12, yerr=unumpy.std_devs(df['electric force [N]'])*1e12, xerr=None , label = 'measured electric force')
+ax.errorbar(df['voltage [V]'], unumpy.nominal_values(df['electric force [N]'])*1e12, yerr=unumpy.std_devs(df['electric force [N]'])*1e12, xerr=None , fmt='o', label = 'measured electric force')
 ax.plot(df['voltage [V]'],linearRegression(df['voltage [V]'],ans[0],ans[1])*1e12, label = 'linear fit')
 
 ax.legend()
 ax.set(ylabel=r'$F_{el}$ [pN]')
-ax.set(xlabel=r'$voltage [V]')
+ax.set(xlabel=r'voltage [V]')
 ax.grid(alpha = 0.4)
 plt.tight_layout()
 
