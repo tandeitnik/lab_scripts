@@ -15,6 +15,7 @@ from scipy.optimize import curve_fit
 from uncertainties import ufloat
 from uncertainties.umath import *
 from uncertainties import unumpy
+import beepy
 
 ####################
 #PARAMETERS SECTION#
@@ -24,7 +25,7 @@ from uncertainties import unumpy
 #####################
 reps = 10 #number of different voltages the data is collected - collect ascending
 drivingFreq = 97_000 #driving harmonic frequency applyed
-freqRange = 100 #frequency window used arount the drivingFreq
+freqRange = 200 #frequency window used arount the drivingFreq
 
 
 #oscilloscope setup
@@ -178,6 +179,7 @@ print("acquiring data")
 
 for rep in range(reps):
     
+    beepy.beep(sound=1)
     #getting voltage from user
     voltageValues[rep] = float(input("Type applyed voltage amplitude (peak to peak): "))
     input("Press ENTER to get next set of measurements...")
