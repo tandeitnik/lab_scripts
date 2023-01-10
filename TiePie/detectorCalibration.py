@@ -52,7 +52,7 @@ welchMethod = 1 #if welchMethod == 1, then Welch method is used (which is quicke
 kb = 1.380649e-23 # [m2 kg s-2 K-1]
 T = ufloat(293.15, 1) #[K]
 rho = 2200 #[kg / m3]
-radius = ufloat(143e-9/2 , 0.004e-6) #[m]
+diameter = ufloat(143e-9 , 0.004e-6) #[m]
 
 
 ######################
@@ -341,7 +341,7 @@ ans, cov = fit
 #calculating calibration factor with appropiate uncertainties#
 ##############################################################
 
-volume = (4/3)*np.pi*radius**3 #[m**3]
+volume = (4/3)*np.pi*(diameter/2)**3 #[m**3]
 mass = volume*rho #[kg]
 
 D = ufloat(ans[0] , np.sqrt(cov[0,0]))

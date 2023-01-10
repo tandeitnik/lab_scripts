@@ -66,7 +66,7 @@ hint = [D_hint,gamma_hint,f_0_hint,cst_hint] #hints used to fit the lorentzian -
 kb = 1.380649e-23 # [m2 kg s-2 K-1]
 T = ufloat(293.15, 1) #[K]
 rho = 2200 #[kg / m3]
-radius = ufloat(143e-9/2 ,  0.004e-6) #[m]
+diameter = ufloat(143e-9 ,  0.004e-6) #[m]
 
 
 ######################
@@ -253,7 +253,7 @@ for rep in range(reps):
     
     #evaluates final PSD and stores it
     PSD_voltage = unumpy.uarray( np.mean(powerArray, axis = 0) , np.std(powerArray,axis = 0) )
-    PSD_meters = PSD_voltage/calibrationFactor
+    PSD_meters = PSD_voltage/(calibrationFactor**2)
     
     PSD = pd.DataFrame( { 'f [Hz]':freq, 'power [m**2/Hz]':PSD_meters})
     PSDList.append(PSD)
@@ -293,7 +293,7 @@ def modelSimplified(f,D,gamma,f_0,cst):
 elecForce = unumpy.uarray([0]*reps,[0]*reps)
 
 #calculating mass with error
-volume = (4/3)*np.pi*radius**3 #[m**3]
+volume = (4/3)*np.pi*(diameter/2)**3 #[m**3]
 mass = volume*rho #[kg]
 
 for volt in range(reps):
