@@ -28,6 +28,7 @@ maxVoltage = 10 #TiePie maximum is +12V
 reps = 10 #number of different voltages the data is collected - collect ascending
 drivingFreq = 45_000 #driving harmonic frequency applyed
 freqRange = 100 #frequency window used arount the drivingFreq
+auto = 0 #if auto = 1, the voltages are applied automatically, else the user must apply voltages via an external function generator and inform the entered values
 
 
 #oscilloscope setup
@@ -40,7 +41,7 @@ rootFolder = r"C:\Users\Labq\Desktop\Daniel R.T\Nova pasta\Nova pasta" #output f
 coupling= "ACV" #coupling type, can be ACV or DCV.
 voltageRange = 1e-3 #oscilloscope range
 autoRange = 1 #if it equals to 1, voltageRange will be ignored and an automatic range will be determined
-gainAutoRange = 1.5 #multiplicative factor that determines the autoRange
+gainAutoRange = 3 #multiplicative factor that determines the autoRange
 
 #write a description of the experiment
 experimentDescription = "Electrode calibration via harmonic driving force. Vacumm chamber at XXmbar."
@@ -60,7 +61,7 @@ welchMethod = 1 #if welchMethod == 1, then Welch method is used (which is quicke
 calibrationFactor = ufloat(26660.711505787207, 1137.7450977944743) #detector calibration factor [V/m] got from the detectorCalibration script. Pass as a ufloat variable.
 leftCut = 40_000  #left frequency cut - try to use the same as the one used for the detector calibration
 rightCut = 100_000 #right frequency cut - try to use the same as the one used for the detector calibration
-hint = [2267950.027764209,43130.30300748253,63500.0,5.443207401738953e-12] #hints used to fit the lorentzian - use the same hints discovered at the detector calibration
+hint = [2267950.027764209,43130.30300748253,63500.0,0] #hints used to fit the lorentzian - use the same hints discovered at the detector calibration
 
 #physics setup
 #####################
@@ -151,32 +152,47 @@ gen.output_on = True
 ####################
 
 def generateOrderedNumbers(maxValue):
-
-    decimalPlaces = int(np.log10(maxValue))
-    stopTest = 0
-    numberList = ["0"*(decimalPlaces+1)]
     
-    for dP in range(decimalPlaces+1):
+    if maxValue != 0:
+        decimalPlaces = int(np.log10(maxValue))
+        numberList = ["0"*(decimalPlaces+1)]
+    else:
+        numberList = ["0"]
+    
+    if maxValue > 1:
         
-        for numeral in range(10**(dP+1)-10**dP):
+        stopTest = 0
+        for dP in range(decimalPlaces+1):
             
-            number = (decimalPlaces-dP)*"0"+str(numeral+10**dP)
-            numberList.append(number)
-            
-            if number == str(maxValue-1):
-                stopTest = 1
+            for numeral in range(10**(dP+1)-10**dP):
+                
+                number = (decimalPlaces-dP)*"0"+str(numeral+10**dP)
+                numberList.append(number)
+                
+                if int(number) == (maxValue-1):
+                    stopTest = 1
+                    break
+                
+            if stopTest == 1:
                 break
-            
-        if stopTest == 1:
-            break
         
     return numberList
 
 tracesNumberList = generateOrderedNumbers(N)
 repsNumberList = generateOrderedNumbers(reps)
 
-outputFolder = os.path.join(rootFolder,"electrodesCalibrationData")
-os.mkdir(outputFolder)
+
+folders = next(os.walk(rootFolder))[1]
+folderNumberList = generateOrderedNumbers(len(folders)+1)
+
+for i in range(len(folders)+1):
+    
+    if ("elecCalibDataAC_"+folderNumberList[i]) in folders:
+        pass
+    else:
+        outputFolder = os.path.join(rootFolder,"elecCalibDataAC_"+folderNumberList[i])
+        os.mkdir(outputFolder)
+        break
 
 voltageValues = np.linspace(minVoltage,maxVoltage,reps)
 PSDList = []
@@ -186,11 +202,16 @@ print("acquiring data")
 
 for rep in range(reps):
     
-    print(str(rep+1)+"/"+str(reps))
-    
-    #creating folder
-    #outputSubFolder = os.path.join(outputFolder,"rep"+repsNumberList[rep])    
-    #os.mkdir(outputSubFolder)
+    if auto == 0:
+        
+        beepy.beep(sound=1)
+        #getting voltage from user
+        voltageValues[rep] = float(input("\nType applyed voltage amplitude (peak to peak): "))
+        input("\nPress ENTER to get next set of measurements...")
+        
+    else:
+        
+        print(str(rep+1)+"/"+str(reps))
 
     #getting autoRange if on
     if autoRange == 1:
@@ -369,7 +390,7 @@ hint_b = unumpy.nominal_values(df['electric force [N]'][len(df)-1]) - hint_a*unu
 fit = curve_fit(linearRegression, df['voltage [V]'], unumpy.nominal_values(df['electric force [N]']) , p0 = [hint_a,hint_b], sigma= unumpy.std_devs(df['electric force [N]']), absolute_sigma=True)
 ans, cov = fit
 
-electricalCalibrationFactor = ufloat(ans[0] , np.sqrt(cov[0,0]) ) #[N/V]
+elecCalibFactor = ufloat(ans[0] , np.sqrt(cov[0,0]) ) #[N/V]
 
 
 ########################################
@@ -395,7 +416,7 @@ plt.tight_layout()
 
 outputFile = os.path.join(outputFolder,'forceVSvoltageFIT.png')
 plt.savefig(outputFile)
-print("\nThe calibration factor {:.2u}" .format(electricalCalibrationFactor*1e9) + "[pN/mV]")
+print("\nThe calibration factor {:.2u}" .format(elecCalibFactor*1e9) + "[pN/mV]")
 
 #############################
 #writing experience info txt#
@@ -408,15 +429,16 @@ lines = ['Experiment info',
          '',
          'Date and time: '+now.strftime("%d/%m/%Y %H:%M:%S"),
          'Device: TiePie',
-         'Device: Electrode calibration',
+         'Device: Electrode calibration - AC method',
          'Min. Voltage: '+str(minVoltage),
          'Max. Voltage: '+str(maxVoltage),
+         'Auto/Manual: '+ str(auto),
          'Samp. freq.: '+str(f),
          'acq. time.: '+str(acqTime),
          'Num. traces: '+str(N),
          'Coupling: '+coupling,
          'Description: '+experimentDescription,
-         "\nThe calibration factor {:.2u}" .format(electricalCalibrationFactor*1e9) + "[pN/mV]"
+         "\nThe calibration factor {:.2u}" .format(elecCalibFactor*1e9) + "[pN/mV]"
          ]
 
 with open(os.path.join(outputFolder,'experimentInfo.txt'), 'w') as f:

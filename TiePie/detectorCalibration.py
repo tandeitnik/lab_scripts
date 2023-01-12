@@ -130,24 +130,29 @@ if autoRange == 1:
 ####################
 
 def generateOrderedNumbers(maxValue):
-
-    decimalPlaces = int(np.log10(maxValue))
-    stopTest = 0
-    numberList = ["0"*(decimalPlaces+1)]
     
-    for dP in range(decimalPlaces+1):
+    if maxValue != 0:
+        decimalPlaces = int(np.log10(maxValue))
+        numberList = ["0"*(decimalPlaces+1)]
+    else:
+        numberList = ["0"]
+    
+    if maxValue > 1:
         
-        for numeral in range(10**(dP+1)-10**dP):
+        stopTest = 0
+        for dP in range(decimalPlaces+1):
             
-            number = (decimalPlaces-dP)*"0"+str(numeral+10**dP)
-            numberList.append(number)
-            
-            if number == str(maxValue-1):
-                stopTest = 1
+            for numeral in range(10**(dP+1)-10**dP):
+                
+                number = (decimalPlaces-dP)*"0"+str(numeral+10**dP)
+                numberList.append(number)
+                
+                if int(number) == (maxValue-1):
+                    stopTest = 1
+                    break
+                
+            if stopTest == 1:
                 break
-            
-        if stopTest == 1:
-            break
         
     return numberList
 
@@ -330,8 +335,7 @@ w_l = f_l*np.pi*2
 
 gamma_hint = np.sqrt( abs(((w_0_hint**2-w_l**2)**2 - (w_0_hint**2-w_r**2)**2) / (w_r**2 - w_l**2)))
 D_hint = Sm*gamma_hint*w_0_hint**2
-cst_hint = unumpy.nominal_values(np.min(trimmedPSD['power [V**2/Hz]']))
-hint = [D_hint,gamma_hint,f_0_hint,cst_hint]
+hint = [D_hint,gamma_hint,f_0_hint,0]
 
 #fitting
 fit = curve_fit(modelSimplified,trimmedPSD['f [Hz]'],unumpy.nominal_values(trimmedPSD['power [V**2/Hz]']), p0 = hint, sigma= unumpy.std_devs(trimmedPSD['power [V**2/Hz]']), absolute_sigma=True)
