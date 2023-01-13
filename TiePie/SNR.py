@@ -11,7 +11,6 @@ from tqdm import tqdm
 import pandas as pd
 import scipy.signal as signal
 import matplotlib.pyplot as plt
-from scipy.optimize import curve_fit
 from uncertainties import ufloat
 from uncertainties.umath import *
 from uncertainties import unumpy
@@ -35,7 +34,7 @@ autoRange = 1 #if it equals to 1, voltageRange will be ignored and an automatic 
 gainAutoRange = 3 #multiplicative factor that determines the autoRange
 
 #write a description of the experiment
-experimentDescription = "Detector calibration. Vacumm chamber at XXmbar."
+experimentDescription = "SNR. Vacumm chamber at XXmbar."
 
 saveRawData = 0 #if 1 the raw data is saved, else the raw data is deleted and only the mean PSD is saved
 
@@ -45,14 +44,6 @@ saveRawData = 0 #if 1 the raw data is saved, else the raw data is deleted and on
 windows = 10 #number of windows used for the welch method
 channel = 'ch1' #which channel to evaluate PSD, can be 'ch1' or 'ch2'
 welchMethod = 1 #if welchMethod == 1, then Welch method is used (which is quicker but it is an estimation). Otherwise, periodogram is used.
-
-#physics setup
-#####################
-
-kb = 1.380649e-23 # [m2 kg s-2 K-1]
-T = ufloat(293.15, 1) #[K]
-rho = 2200 #[kg / m3]
-diameter = ufloat(143e-9 , 0.004e-6) #[m]
 
 
 ######################
@@ -102,29 +93,6 @@ for ch in scp.channels:
     else:
         ch.coupling = libtiepie.CK_DCV
 
-
-if autoRange == 1:
-    
-    scp.start()
-
-    # Wait for measurement to complete:
-    while not (scp.is_data_ready or scp.is_data_overflow):
-        time.sleep(0.01)  # 10 ms delay, to save CPU time
-
-    # Get data:
-    data = scp.get_data()
-    size = len(data[0])
-
-    rangeStdCH1 = np.std(data[0])
-    rangeStdCH2 = np.std(data[0])
-    # Stop stream:
-    scp.stop()
-    
-    autoRangeValue = max(rangeStdCH1,rangeStdCH2)*gainAutoRange
-    ch.range = autoRangeValue
-    #print("Range set to "+str(autoRangeValue)+"V")
-
-
 ####################
 #acquiring the data#
 ####################
@@ -163,91 +131,140 @@ folderNumberList = generateOrderedNumbers(len(folders)+1)
 
 for i in range(len(folders)+1):
     
-    if ("detectorCalibrationData_"+folderNumberList[i]) in folders:
+    if ("SNR_"+folderNumberList[i]) in folders:
         pass
     else:
-        outputFolder = os.path.join(rootFolder,"detectorCalibrationData_"+folderNumberList[i])
+        outputFolder = os.path.join(rootFolder,"SNR_"+folderNumberList[i])
         os.mkdir(outputFolder)
         break
 
 
-
 print("acquiring data")
 
-for n in tqdm(range(N)):    
+for snr in range(3):
+    
+    winsound.Beep (440, 1000)
+    
+    if snr == 0:
+    
+        print("\nFirst, get the data of the detector without any incident lasers...")
+        input("\nWhen ready, press ENTER to collect data.")
+        
+    elif snr == 1:
+        
+        print("\nSecond, get the data with the laser focusing on the detector, but without a trapped particle...")
+        input("\nWhen ready, press ENTER to collect data.")
+        
+    elif snr == 2:
+        
+        print("\nThird, get the data with a trapped particle at a low pressure...")
+        input("\nWhen ready, press ENTER to collect data.")
+    
+    
+    if autoRange == 1:
+        
+        scp.start()
 
-    # Start measurement:
-    scp.start()
+        # Wait for measurement to complete:
+        while not (scp.is_data_ready or scp.is_data_overflow):
+            time.sleep(0.01)  # 10 ms delay, to save CPU time
 
-    # Wait for measurement to complete:
-    while not (scp.is_data_ready or scp.is_data_overflow):
-        time.sleep(0.01)  # 10 ms delay, to save CPU time
+        # Get data:
+        data = scp.get_data()
+        size = len(data[0])
 
-    # Get data:
-    data = scp.get_data()
+        rangeStdCH1 = np.std(data[0])
+        rangeStdCH2 = np.std(data[0])
+        # Stop stream:
+        scp.stop()
+        
+        autoRangeValue = max(rangeStdCH1,rangeStdCH2)*gainAutoRange
+        ch.range = autoRangeValue
     
-    # Stop stream:
-    scp.stop()
+    for n in tqdm(range(N)):    
     
-    # Put data into a data frame
-    size = len(data[0])
-    df = pd.DataFrame({'t':np.linspace(0,acqTime,size), 'ch1':data[0], 'ch2':data[1]})
+        # Start measurement:
+        scp.start()
     
-    #Calculating PSD
-    if welchMethod == 1: #if welch method is ON
+        # Wait for measurement to complete:
+        while not (scp.is_data_ready or scp.is_data_overflow):
+            time.sleep(0.01)  # 10 ms delay, to save CPU time
     
-        if n == 0: #first round
-    
-            freq, power = signal.welch(df[channel], f, window = 'hamming', nperseg = int(len(df[channel])/windows))
-            powerArray = np.zeros([N,len(freq)])
-            powerArray[0,:] = power
+        # Get data:
+        data = scp.get_data()
+        
+        # Stop stream:
+        scp.stop()
+        
+        # Put data into a data frame
+        size = len(data[0])
+        df = pd.DataFrame({'t':np.linspace(0,acqTime,size), 'ch1':data[0], 'ch2':data[1]})
+        
+        #Calculating PSD
+        if welchMethod == 1: #if welch method is ON
+        
+            if n == 0: #first round
+        
+                freq, power = signal.welch(df[channel], f, window = 'hamming', nperseg = int(len(df[channel])/windows))
+                powerArray = np.zeros([N,len(freq)])
+                powerArray[0,:] = power
+                
+            else: #subsequent rounds
             
-        else: #subsequent rounds
+                freq, power = signal.welch(df[channel], f, window = 'hamming', nperseg = int(len(df[channel])/windows))
+                powerArray[n,:] = power
         
-            freq, power = signal.welch(df[channel], f, window = 'hamming', nperseg = int(len(df[channel])/windows))
-            powerArray[n,:] = power
-    
-        
-    else: #if welch method is OFF
-        
-        if n == 0: #first round
-        
-            #evaluates the PSD for the first trace
-            freq, power = signal.periodogram(df[channel], f, scaling='density')
-            powerArray = np.zeros([N,len(freq)])
-            powerArray[0,:] = power
-        
-        else: #subsequent rounds
-
             
-            freq, power = signal.periodogram(df[channel], f, scaling='density')
-            powerArray[n,:] = power
-
-    #################
-    #saving the data#
-    #################
-
-    if saveRawData == 1:
+        else: #if welch method is OFF
+            
+            if n == 0: #first round
+            
+                #evaluates the PSD for the first trace
+                freq, power = signal.periodogram(df[channel], f, scaling='density')
+                powerArray = np.zeros([N,len(freq)])
+                powerArray[0,:] = power
+            
+            else: #subsequent rounds
+    
+                
+                freq, power = signal.periodogram(df[channel], f, scaling='density')
+                powerArray[n,:] = power
+    
+        #################
+        #saving the data#
+        #################
+    
+        if saveRawData == 1:
+            
+            outputFile = os.path.join(outputFolder,tracesNumberList[n])
+            df.to_pickle(outputFile)
+    
+        #delete original df to save space
+        del df
         
-        outputFile = os.path.join(outputFolder,tracesNumberList[n])
-        df.to_pickle(outputFile)
+        # Calculate mean PSD and standard error
+        meanPSD = unumpy.uarray( np.mean(powerArray, axis = 0) , np.std(powerArray,axis = 0) )
+        
+        if snr == 0:
+        
+            df = pd.DataFrame({'f [Hz]':freq, 'Floor PSD [V**2/Hz]':meanPSD})
+            
+        elif snr == 1:
+            
+            df['Laser PSD [V**2/Hz]'] = meanPSD
+            
+        elif snr == 2:
+            
+            df['Particle PSD [V**2/Hz]'] = meanPSD
 
-    #delete original df to save space
-    del df
+        del powerArray, meanPSD
 
 # Close oscilloscope:
 del scp
 
-# Calculate mean PSD and standard error
-PSD_voltage = unumpy.uarray( np.mean(powerArray, axis = 0) , np.std(powerArray,axis = 0) )
-df_PSD = pd.DataFrame({'f [Hz]':freq, 'power [V**2/Hz]':PSD_voltage})
-
-#saving the data frame with PSD
+#saving the data frame with the PSDs
 outputFile = os.path.join(outputFolder,'PSD.pkl')
-df_PSD.to_pickle(outputFile)
-
-del powerArray
-
+df.to_pickle(outputFile)
 
 #################################################
 #getting left and right frequency cuts from user#
@@ -261,10 +278,12 @@ plt.rcParams["axes.linewidth"] = 1
 
 ax = plt.gca()
 
-ax.scatter(df_PSD['f [Hz]'] ,unumpy.nominal_values(df_PSD['power [V**2/Hz]']), s = 10)
-ax.set_ylim([min(unumpy.nominal_values(df_PSD['power [V**2/Hz]'][1:])), max(unumpy.nominal_values(df_PSD['power [V**2/Hz]']))])
+ax.scatter(df['f [Hz]'] ,unumpy.nominal_values(df['Floor PSD [V**2/Hz]']), s = 10, label = 'floor')
+ax.scatter(df['f [Hz]'] ,unumpy.nominal_values(df['Laser PSD [V**2/Hz]']), s = 10, label = 'laser')
+ax.scatter(df['f [Hz]'] ,unumpy.nominal_values(df['Particle PSD [V**2/Hz]']), s = 10, label = 'particle')
+ax.set_ylim([min(unumpy.nominal_values(df['power [V**2/Hz]'][1:])), 2*max(unumpy.nominal_values(df['Laser PSD [V**2/Hz]']))])
 ax.set_xlim([1000, f/2])
-        
+ax.legend()
 ax.set_yscale('log')
 ax.set_xscale('log')
 ax.set(ylabel=r'$V^2$/Hz')
@@ -304,76 +323,29 @@ deltaFreq = freq[1]-freq[0]
 idxLeft = int(leftCut/deltaFreq)
 idxRight = int(rightCut/deltaFreq)
 
-trimmedPSD = df_PSD[idxLeft:idxRight].reset_index()
-
+trimmedPSD = df[idxLeft:idxRight].reset_index()
 #saving the data frame with trimmed PSD
 outputFile = os.path.join(outputFolder,'trimmedPSD.pkl')
 trimmedPSD.to_pickle(outputFile)
 
 ################
-#making the fit#
+#evaluating SNR#
 ################
 
-def modelSimplified(f,D,gamma,f_0,cst):
-    
-    numerator = D*gamma
-    w = f*2*np.pi
-    w_0 = f_0*2*np.pi
-    denominator = (w**2-w_0**2)**2 +(gamma*w)**2
-    
-    return  numerator/denominator + cst
-    
-#discovering hints for fit
+#finding max value of the trapped particle signal
+partSignal = unumpy.nominal_values(max(trimmedPSD['Particle PSD [V**2/Hz]']))
 
-#1) discover max value of the PSD
-Sm = unumpy.nominal_values(max(trimmedPSD['power [V**2/Hz]']))
+#evaluating the mean signal strength for floor and laser noise
+floorNoise = np.mean(unumpy.nominal_values(trimmedPSD['Floor PSD [V**2/Hz]']))
+laserNoise = np.mean(unumpy.nominal_values(trimmedPSD['Laser PSD [V**2/Hz]']))
 
-#2) discover approximate frequency where the PSD is at half value
-for i in range(len(trimmedPSD)):
-    
-    if unumpy.nominal_values(trimmedPSD['power [V**2/Hz]'][i]) >= Sm:
-        f_0_hint  = trimmedPSD['f [Hz]'][i]
-        break
-
-for i in range(len(trimmedPSD)):
-
-    if unumpy.nominal_values(trimmedPSD['power [V**2/Hz]'][i]) >= Sm/2 and (('f_l' in locals()) == False):
-        f_l = trimmedPSD['f [Hz]'][i]
-        
-    if unumpy.nominal_values(trimmedPSD['power [V**2/Hz]'][i]) <= Sm/2 and (trimmedPSD['f [Hz]'][i] > f_0_hint):
-        f_r = trimmedPSD['f [Hz]'][i]
-        break
-    
-#3) evaluate the hints
-w_0_hint = f_0_hint*2*np.pi
-w_r = f_r*2*np.pi
-w_l = f_l*np.pi*2
-
-gamma_hint = np.sqrt( abs(((w_0_hint**2-w_l**2)**2 - (w_0_hint**2-w_r**2)**2) / (w_r**2 - w_l**2)))
-D_hint = Sm*gamma_hint*w_0_hint**2
-hint = [D_hint,gamma_hint,f_0_hint,0]
-
-#fitting
-fit = curve_fit(modelSimplified,trimmedPSD['f [Hz]'],unumpy.nominal_values(trimmedPSD['power [V**2/Hz]']), p0 = hint, sigma= unumpy.std_devs(trimmedPSD['power [V**2/Hz]']), absolute_sigma=True)
-ans, cov = fit
-
-##############################################################
-#calculating calibration factor with appropiate uncertainties#
-##############################################################
-
-volume = (4/3)*np.pi*(diameter/2)**3 #[m**3]
-mass = volume*rho #[kg]
-
-D = ufloat(ans[0] , np.sqrt(cov[0,0]))
-
-calibrationFactor = sqrt(D*mass/(4*kb*T)) #[V/m]
-
+#evaluating SNRs
+SNR_floor = 10*np.log10(partSignal/floorNoise)
+SNR_laser = 10*np.log10(partSignal/laserNoise)
 
 ########################################
 #saving results and showing to the user#
 ########################################
-
-#showing and saving a plot
 
 dpi = 100
 fig = plt.figure(figsize=(1.5*1080/dpi,1.5*720/dpi), dpi=dpi)
@@ -382,20 +354,25 @@ plt.rcParams["axes.linewidth"] = 1
 
 ax = plt.gca()
 
-ax.scatter(trimmedPSD['f [Hz]'],unumpy.nominal_values(trimmedPSD['power [V**2/Hz]']),label = 'trimmed PSD' , s = 10)
-ax.plot(trimmedPSD['f [Hz]'],modelSimplified(trimmedPSD['f [Hz]'],ans[0],ans[1],ans[2],ans[3]), 'r',label='fitted function')
-
+ax.scatter(trimmedPSD['f [Hz]'] ,unumpy.nominal_values(trimmedPSD['Floor PSD [V**2/Hz]']), s = 10, label = 'floor - SNR = '+str(int(SNR_floor))+'db')
+ax.scatter(trimmedPSD['f [Hz]'] ,unumpy.nominal_values(trimmedPSD['Laser PSD [V**2/Hz]']), s = 10, label = 'laser - SNR = '+str(int(SNR_laser))+'db')
+ax.scatter(trimmedPSD['f [Hz]'] ,unumpy.nominal_values(trimmedPSD['Particle PSD [V**2/Hz]']), s = 10, label = 'particle')
+ax.set_ylim([min(unumpy.nominal_values(trimmedPSD['power [V**2/Hz]'][1:])), 2*max(unumpy.nominal_values(trimmedPSD['Laser PSD [V**2/Hz]']))])
+ax.set_xlim([leftCut, rightCut])
+ax.legend()
 ax.set_yscale('log')
 ax.set_xscale('log')
-ax.legend()
 ax.set(ylabel=r'$V^2$/Hz')
 ax.set(xlabel=r'$\Omega/2\pi$ [Hz]')
-ax.grid(alpha = 0.4)
+ax.set_axisbelow(True)
+ax.minorticks_on()
+ax.grid(which='major', linestyle='-', linewidth='1')
+ax.grid(which='minor', linestyle=':', linewidth='1')
 plt.tight_layout()
 
-outputFile = os.path.join(outputFolder,'trimmedPSDwithFIT.png')
+outputFile = os.path.join(outputFolder,'SNR_PSDs.png')
 plt.savefig(outputFile)
-print('\nThe calibration factor is: {:.2u}'.format(calibrationFactor*1e-6)+ " [mV/nm]" )
+plt.close()
 
 #############################
 #writing experience info txt#
@@ -408,17 +385,14 @@ lines = ['Experiment info',
          '',
          'Date and time: '+now.strftime("%d/%m/%Y %H:%M:%S"),
          'Device: TiePie',
-         'Task: Detector calibration',
+         'Task: SNR',
          'Samp. freq.: '+str(f),
          'acq. time.: '+str(acqTime),
          'Num. traces: '+str(N),
          'Coupling: '+coupling,
          'Description: '+experimentDescription,
-         'The calibration factor is: {:.2u}'.format(calibrationFactor*1e-6)+ " [mV/nm]",
-         'Hint D is '+str(hint[0]),
-         'Hint gamma is '+str(hint[1]),
-         'Hint f_0 is '+str(hint[2]),
-         'Hint cst is '+str(hint[3]),
+         'SNR Floor: '+str(SNR_floor)+'db',
+         'SNR Laser: '+str(SNR_laser)+'db',
          ]
 
 with open(os.path.join(outputFolder,'experimentInfo.txt'), 'w') as f:

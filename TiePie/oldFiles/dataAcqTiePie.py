@@ -9,7 +9,6 @@ from printinfo import *
 from datetime import datetime
 from tqdm import tqdm
 import beepy
-import pandas as pd
 
 #####################################################################
 #####################################################################
@@ -77,59 +76,54 @@ def generateOrderedNumbers(maxValue):
         
     return numberList
 
-repNumberList = generateOrderedNumbers(reps)
-tracesNumberList = generateOrderedNumbers(N)
-
-#connecting to tiepie
-"""tie pie stuff [begin]"""
-libtiepie.network.auto_detect_enabled = True
-
-# Search for devices:
-libtiepie.device_list.update()
-
-# Try to open an oscilloscope with stream measurement support:
-scp = None
-for item in libtiepie.device_list:
-    if item.can_open(libtiepie.DEVICETYPE_OSCILLOSCOPE):
-        scp = item.open_oscilloscope()
-        if scp.measure_modes & libtiepie.MM_STREAM:
-            break
-        else:
-            scp = None
-            
-assert scp != None, "OSCILLOSCOPE NOT FOUND"
-
-scp.measure_mode = libtiepie.MM_STREAM
-
-# Set sample frequency:
-scp.sample_frequency = freq
-
-# Set record length:
-dt = 1/freq
-recordLength = int(acqTime/dt)
-scp.record_length = recordLength
-
-# For all channels:
-for ch in scp.channels:
-    # Enable channel to measure it:
-    ch.enabled = True
-
-    # Set range:
-    ch.range = voltageRange
-
-    # Set coupling:
-    if coupling == "ACV":
-        ch.coupling = libtiepie.CK_ACV
-    else:
-        ch.coupling = libtiepie.CK_DCV
+numberList = generateOrderedNumbers(reps)
 
 for rep in range(reps):
     
-    outputFolder = os.path.join(rootFolder,"rep"+repNumberList[rep])
+    outputFolder = os.path.join(rootFolder,"rep"+numberList[rep])
     os.mkdir(outputFolder)
     dt = 1/freq
-    
+    recordLength = int(acqTime/dt)
 
+    """tie pie stuff [begin]"""
+    libtiepie.network.auto_detect_enabled = True
+    
+    # Search for devices:
+    libtiepie.device_list.update()
+    
+    # Try to open an oscilloscope with stream measurement support:
+    scp = None
+    for item in libtiepie.device_list:
+        if item.can_open(libtiepie.DEVICETYPE_OSCILLOSCOPE):
+            scp = item.open_oscilloscope()
+            if scp.measure_modes & libtiepie.MM_STREAM:
+                break
+            else:
+                scp = None
+                
+    assert scp != None, "OSCILLOSCOPE NOT FOUND"
+    
+    scp.measure_mode = libtiepie.MM_STREAM
+    
+    # Set sample frequency:
+    scp.sample_frequency = freq
+    
+    # Set record length:
+    scp.record_length = recordLength
+    
+    # For all channels:
+    for ch in scp.channels:
+        # Enable channel to measure it:
+        ch.enabled = True
+    
+        # Set range:
+        ch.range = voltageRange
+    
+        # Set coupling:
+        if coupling == "ACV":
+            ch.coupling = libtiepie.CK_ACV
+        else:
+            ch.coupling = libtiepie.CK_DCV
     
     dataList = []
     
@@ -144,13 +138,18 @@ for rep in range(reps):
         # Get data:
         data = scp.get_data()
         size = len(data[0])
+        #put data into an array (maybe I can skip this!)
+        dataArray = np.zeros( [size,3] )
+        dataArray[:,0] = np.linspace(0,acqTime,size) #Time
+        dataArray[:,1] = data[0] #Channel 1
+        dataArray[:,2] = data[1] #Channel 2
     
         rangeStdCH1 = np.std(data[0])
         rangeStdCH2 = np.std(data[0])
         # Stop stream:
         scp.stop()
         
-        autoRangeValue = max(rangeStdCH1,rangeStdCH2)*gainAutoRange
+        autoRangeValue = max(rangeStdCH1,rangeStdCH1)*gainAutoRange
         ch.range = autoRangeValue
         print("Range set to "+str(autoRangeValue)+"V")
         
@@ -168,28 +167,33 @@ for rep in range(reps):
     
         # Get data:
         data = scp.get_data()
-        
+        size = len(data[0])
+        #put data into an array (maybe I can skip this!)
+        dataArray = np.zeros( [size,3] )
+        dataArray[:,0] = np.linspace(0,acqTime,size) #Time
+        dataArray[:,1] = data[0] #Channel 1
+        dataArray[:,2] = data[1] #Channel 2
+    
+        dataList.append(dataArray)
+    
         # Stop stream:
         scp.stop()
-        
-        # Put data into a data frame
-        size = len(data[0])
-        df = pd.DataFrame({'t':np.linspace(0,acqTime,size), 'ch1':data[0], 'ch2':data[1]})
     
-        #putdF into a list
-        dataList.append(df)
-        
-        #delete original df to save space
-        del df
-    
-
     print("saving data")
     
     for n in tqdm(range(N)):
         
-        outputFile = os.path.join(outputFolder,tracesNumberList[n])
-        dataList[n].to_pickle(outputFile)
-
+        if n <= 9:
+            
+            outputFile = os.path.join(outputFolder,'0'+str(n))
+            np.save(outputFile,dataList[n])
+            
+        else:
+            
+            outputFile = os.path.join(outputFolder,str(n))
+            np.save(outputFile,dataList[n])
+    
+    
     if rep != reps-1:
         print("zzzzzzzzz")
         time.sleep(delay)

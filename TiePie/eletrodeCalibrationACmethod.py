@@ -15,7 +15,7 @@ from scipy.optimize import curve_fit
 from uncertainties import ufloat
 from uncertainties.umath import *
 from uncertainties import unumpy
-import beepy
+import winsound
 
 ####################
 #PARAMETERS SECTION#
@@ -204,7 +204,7 @@ for rep in range(reps):
     
     if auto == 0:
         
-        beepy.beep(sound=1)
+        winsound.Beep (440, 1000)
         #getting voltage from user
         voltageValues[rep] = float(input("\nType applyed voltage amplitude (peak to peak): "))
         input("\nPress ENTER to get next set of measurements...")
@@ -294,9 +294,10 @@ for rep in range(reps):
     deltaFreq = freq[1]-freq[0]
     idxLeft = int(leftCut/deltaFreq)
     idxRight = int(rightCut/deltaFreq)
-    trPSD = pd.DataFrame({'f [Hz]':PSD['f [Hz]'][idxLeft:idxRight], 'power [m**2/Hz]':PSD['power [m**2/Hz]'][idxLeft:idxRight]}).reset_index()
-    trimmedPSD.append(trPSD)
     
+    trPSD = PSD[idxLeft:idxRight].reset_index()
+    trimmedPSD.append(trPSD)
+   
     #saving stuff
     outputFile = os.path.join(outputFolder,'PSD.pkl')
     PSD.to_pickle(outputFile)
@@ -399,8 +400,9 @@ elecCalibFactor = ufloat(ans[0] , np.sqrt(cov[0,0]) ) #[N/V]
 
 #showing and saving a plot
 
-fig = plt.figure()
-plt.rcParams.update({'font.size': 14})
+dpi = 100
+fig = plt.figure(figsize=(1.5*1080/dpi,1.5*720/dpi), dpi=dpi)
+plt.rcParams.update({'font.size': 24})
 plt.rcParams["axes.linewidth"] = 1
 
 ax = plt.gca()
