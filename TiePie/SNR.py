@@ -198,20 +198,20 @@ for snr in range(3):
         
         # Put data into a data frame
         size = len(data[0])
-        df = pd.DataFrame({'t':np.linspace(0,acqTime,size), 'ch1':data[0], 'ch2':data[1]})
+        dfData = pd.DataFrame({'t':np.linspace(0,acqTime,size), 'ch1':data[0], 'ch2':data[1]})
         
         #Calculating PSD
         if welchMethod == 1: #if welch method is ON
         
             if n == 0: #first round
         
-                freq, power = signal.welch(df[channel], f, window = 'hamming', nperseg = int(len(df[channel])/windows))
+                freq, power = signal.welch(dfData[channel], f, window = 'hamming', nperseg = int(len(dfData[channel])/windows))
                 powerArray = np.zeros([N,len(freq)])
                 powerArray[0,:] = power
                 
             else: #subsequent rounds
             
-                freq, power = signal.welch(df[channel], f, window = 'hamming', nperseg = int(len(df[channel])/windows))
+                freq, power = signal.welch(dfData[channel], f, window = 'hamming', nperseg = int(len(dfData[channel])/windows))
                 powerArray[n,:] = power
         
             
@@ -220,26 +220,26 @@ for snr in range(3):
             if n == 0: #first round
             
                 #evaluates the PSD for the first trace
-                freq, power = signal.periodogram(df[channel], f, scaling='density')
+                freq, power = signal.periodogram(dfData[channel], f, scaling='density')
                 powerArray = np.zeros([N,len(freq)])
                 powerArray[0,:] = power
             
             else: #subsequent rounds
     
                 
-                freq, power = signal.periodogram(df[channel], f, scaling='density')
+                freq, power = signal.periodogram(dfData[channel], f, scaling='density')
                 powerArray[n,:] = power
     
         #################
         #saving the data#
         #################
     
-        if saveRawData == 1:
-            
-            outputFile = os.path.join(outputFolder,tracesNumberList[n])
-            df.to_pickle(outputFile)
+#        if saveRawData == 1:
+#            
+#            outputFile = os.path.join(outputFolder,tracesNumberList[n])
+#            dfData.to_pickle(outputFile)
     
-        
+    del dfData
     # Calculate mean PSD and standard error
     meanPSD = unumpy.uarray( np.mean(powerArray, axis = 0) , np.std(powerArray,axis = 0) )
     
@@ -279,7 +279,7 @@ ax = plt.gca()
 ax.scatter(df['f [Hz]'] ,unumpy.nominal_values(df['Floor PSD [V**2/Hz]']), s = 10, label = 'floor')
 ax.scatter(df['f [Hz]'] ,unumpy.nominal_values(df['Laser PSD [V**2/Hz]']), s = 10, label = 'laser')
 ax.scatter(df['f [Hz]'] ,unumpy.nominal_values(df['Particle PSD [V**2/Hz]']), s = 10, label = 'particle')
-ax.set_ylim([min(unumpy.nominal_values(df['power [V**2/Hz]'][1:])), 2*max(unumpy.nominal_values(df['Laser PSD [V**2/Hz]']))])
+ax.set_ylim([min(unumpy.nominal_values(df['Particle PSD [V**2/Hz]'][1:])), 2*max(unumpy.nominal_values(df['Particle PSD [V**2/Hz]']))])
 ax.set_xlim([1000, f/2])
 ax.legend()
 ax.set_yscale('log')
@@ -355,7 +355,7 @@ ax = plt.gca()
 ax.scatter(trimmedPSD['f [Hz]'] ,unumpy.nominal_values(trimmedPSD['Floor PSD [V**2/Hz]']), s = 10, label = 'floor - SNR = '+str(int(SNR_floor))+'db')
 ax.scatter(trimmedPSD['f [Hz]'] ,unumpy.nominal_values(trimmedPSD['Laser PSD [V**2/Hz]']), s = 10, label = 'laser - SNR = '+str(int(SNR_laser))+'db')
 ax.scatter(trimmedPSD['f [Hz]'] ,unumpy.nominal_values(trimmedPSD['Particle PSD [V**2/Hz]']), s = 10, label = 'particle')
-ax.set_ylim([min(unumpy.nominal_values(trimmedPSD['power [V**2/Hz]'][1:])), 2*max(unumpy.nominal_values(trimmedPSD['Laser PSD [V**2/Hz]']))])
+ax.set_ylim([min(unumpy.nominal_values(trimmedPSD['Particle PSD [V**2/Hz]'][1:])), 2*max(unumpy.nominal_values(trimmedPSD['Particle PSD [V**2/Hz]']))])
 ax.set_xlim([leftCut, rightCut])
 ax.legend()
 ax.set_yscale('log')
