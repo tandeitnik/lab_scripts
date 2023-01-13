@@ -239,8 +239,6 @@ for snr in range(3):
             outputFile = os.path.join(outputFolder,tracesNumberList[n])
             df.to_pickle(outputFile)
     
-        #delete original df to save space
-        del df
         
     # Calculate mean PSD and standard error
     meanPSD = unumpy.uarray( np.mean(powerArray, axis = 0) , np.std(powerArray,axis = 0) )
