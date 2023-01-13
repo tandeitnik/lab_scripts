@@ -26,15 +26,15 @@ import winsound
 
 f = int(1e6) #sampling frequency [Hz]
 acqTime = 0.1 # total acquisiton time [s]
-N = 200 # number of traces
-rootFolder = r"C:\Users\Labq\Desktop\Daniel R.T\Nova pasta\calibrationTest" #output folder where the calibration data will be saved
+N = 1000 # number of traces
+rootFolder = r"C:\Users\Labq\Desktop\Daniel R.T\Nova pasta" #output folder where the calibration data will be saved
 coupling= "ACV" #coupling type, can be ACV or DCV.
 voltageRange = 1e-3 #oscilloscope range
 autoRange = 1 #if it equals to 1, voltageRange will be ignored and an automatic range will be determined
 gainAutoRange = 3 #multiplicative factor that determines the autoRange
 
 #write a description of the experiment
-experimentDescription = "SNR. Vacumm chamber at XXmbar."
+experimentDescription = "SNR. Vacumm chamber at 10mbar."
 
 saveRawData = 0 #if 1 the raw data is saved, else the raw data is deleted and only the mean PSD is saved
 
@@ -242,22 +242,22 @@ for snr in range(3):
         #delete original df to save space
         del df
         
-        # Calculate mean PSD and standard error
-        meanPSD = unumpy.uarray( np.mean(powerArray, axis = 0) , np.std(powerArray,axis = 0) )
+    # Calculate mean PSD and standard error
+    meanPSD = unumpy.uarray( np.mean(powerArray, axis = 0) , np.std(powerArray,axis = 0) )
+    
+    if snr == 0:
+    
+        df = pd.DataFrame({'f [Hz]':freq, 'Floor PSD [V**2/Hz]':meanPSD})
         
-        if snr == 0:
+    elif snr == 1:
         
-            df = pd.DataFrame({'f [Hz]':freq, 'Floor PSD [V**2/Hz]':meanPSD})
-            
-        elif snr == 1:
-            
-            df['Laser PSD [V**2/Hz]'] = meanPSD
-            
-        elif snr == 2:
-            
-            df['Particle PSD [V**2/Hz]'] = meanPSD
+        df['Laser PSD [V**2/Hz]'] = meanPSD
+        
+    elif snr == 2:
+        
+        df['Particle PSD [V**2/Hz]'] = meanPSD
 
-        del powerArray, meanPSD
+    del powerArray, meanPSD
 
 # Close oscilloscope:
 del scp
