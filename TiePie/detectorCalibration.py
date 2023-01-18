@@ -27,15 +27,15 @@ import winsound
 
 f = int(1e6) #sampling frequency [Hz]
 acqTime = 0.1 # total acquisiton time [s]
-N = 200 # number of traces
-rootFolder = r"C:\Users\Labq\Desktop\Daniel R.T\Nova pasta\calibrationTest" #output folder where the calibration data will be saved
+N = 500 # number of traces
+rootFolder = r"C:\Users\Labq\Desktop\Daniel R.T\TiePie\testes" #output folder where the calibration data will be saved
 coupling= "ACV" #coupling type, can be ACV or DCV.
 voltageRange = 1e-3 #oscilloscope range
 autoRange = 1 #if it equals to 1, voltageRange will be ignored and an automatic range will be determined
 gainAutoRange = 3 #multiplicative factor that determines the autoRange
 
 #write a description of the experiment
-experimentDescription = "Detector calibration. Vacumm chamber at XXmbar."
+experimentDescription = "Detector calibration. Vacumm chamber at 10mbar."
 
 saveRawData = 0 #if 1 the raw data is saved, else the raw data is deleted and only the mean PSD is saved
 
@@ -384,7 +384,7 @@ ax = plt.gca()
 
 ax.scatter(trimmedPSD['f [Hz]'],unumpy.nominal_values(trimmedPSD['power [V**2/Hz]']),label = 'trimmed PSD' , s = 10)
 ax.plot(trimmedPSD['f [Hz]'],modelSimplified(trimmedPSD['f [Hz]'],ans[0],ans[1],ans[2],ans[3]), 'r',label='fitted function')
-
+ax.set_ylim([min(unumpy.nominal_values(trimmedPSD['power [V**2/Hz]'])), 2*max(unumpy.nominal_values(trimmedPSD['power [V**2/Hz]']))])
 ax.set_yscale('log')
 ax.set_xscale('log')
 ax.legend()
