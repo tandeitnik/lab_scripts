@@ -26,8 +26,8 @@ import winsound
 
 f = int(1e6) #sampling frequency [Hz]
 acqTime = 0.1 # total acquisiton time [s]
-N = 1000 # number of traces
-rootFolder = r"C:\Users\Labq\Desktop\Daniel R.T\Nova pasta" #output folder where the calibration data will be saved
+N = 500 # number of traces
+rootFolder = r"C:\Users\Labq\Desktop\Daniel R.T\TiePie\testes" #output folder where the calibration data will be saved
 coupling= "ACV" #coupling type, can be ACV or DCV.
 voltageRange = 1e-3 #oscilloscope range
 autoRange = 1 #if it equals to 1, voltageRange will be ignored and an automatic range will be determined
@@ -355,7 +355,7 @@ ax = plt.gca()
 ax.scatter(trimmedPSD['f [Hz]'] ,unumpy.nominal_values(trimmedPSD['Floor PSD [V**2/Hz]']), s = 10, label = 'floor - SNR = '+str(int(SNR_floor))+'db')
 ax.scatter(trimmedPSD['f [Hz]'] ,unumpy.nominal_values(trimmedPSD['Laser PSD [V**2/Hz]']), s = 10, label = 'laser - SNR = '+str(int(SNR_laser))+'db')
 ax.scatter(trimmedPSD['f [Hz]'] ,unumpy.nominal_values(trimmedPSD['Particle PSD [V**2/Hz]']), s = 10, label = 'particle')
-ax.set_ylim([min(unumpy.nominal_values(trimmedPSD['Particle PSD [V**2/Hz]'][1:])), 2*max(unumpy.nominal_values(trimmedPSD['Particle PSD [V**2/Hz]']))])
+ax.set_ylim([min(unumpy.nominal_values(trimmedPSD['Floor PSD [V**2/Hz]'][1:])), 2*max(unumpy.nominal_values(trimmedPSD['Particle PSD [V**2/Hz]']))])
 ax.set_xlim([leftCut, rightCut])
 ax.legend()
 ax.set_yscale('log')
