@@ -26,9 +26,9 @@ import winsound
 minVoltage = 1 #TiePie minimum is -12V
 maxVoltage = 10 #TiePie maximum is +12V
 reps = 10 #number of different voltages the data is collected - collect ascending
-drivingFreq = 45_000 #driving harmonic frequency applyed
+drivingFreq = 55_000 #driving harmonic frequency applyed
 freqRange = 100 #frequency window used arount the drivingFreq
-auto = 0 #if auto = 1, the voltages are applied automatically, else the user must apply voltages via an external function generator and inform the entered values
+auto = 1 #if auto = 1, the voltages are applied automatically, else the user must apply voltages via an external function generator and inform the entered values
 
 
 #oscilloscope setup
@@ -37,14 +37,14 @@ auto = 0 #if auto = 1, the voltages are applied automatically, else the user mus
 f = int(1e6) #sampling frequency [Hz]
 acqTime = 0.1 # total acquisiton time [s]
 N = 500 # number of traces
-rootFolder = r"C:\Users\Labq\Desktop\Daniel R.T\Nova pasta\Nova pasta" #output folder where the calibration data will be saved
+rootFolder = r"C:\Users\Labq\Desktop\Daniel R.T\TiePie\testes" #output folder where the calibration data will be saved
 coupling= "ACV" #coupling type, can be ACV or DCV.
 voltageRange = 1e-3 #oscilloscope range
 autoRange = 1 #if it equals to 1, voltageRange will be ignored and an automatic range will be determined
 gainAutoRange = 3 #multiplicative factor that determines the autoRange
 
 #write a description of the experiment
-experimentDescription = "Electrode calibration via harmonic driving force. Vacumm chamber at XXmbar."
+experimentDescription = "Electrode calibration via harmonic driving force. Vacumm chamber at 10mbar."
 
 
 #PSD setup
@@ -58,10 +58,10 @@ welchMethod = 1 #if welchMethod == 1, then Welch method is used (which is quicke
 #calibration parameters
 #####################
 
-calibrationFactor = ufloat(26660.711505787207, 1137.7450977944743) #detector calibration factor [V/m] got from the detectorCalibration script. Pass as a ufloat variable.
+calibrationFactor = ufloat(8847.800695841712, 418.144454770108) #detector calibration factor [V/m] got from the detectorCalibration script. Pass as a ufloat variable.
 leftCut = 40_000  #left frequency cut - try to use the same as the one used for the detector calibration
-rightCut = 100_000 #right frequency cut - try to use the same as the one used for the detector calibration
-hint = [2267950.027764209,43130.30300748253,63500.0,0] #hints used to fit the lorentzian - use the same hints discovered at the detector calibration
+rightCut = 65_000 #right frequency cut - try to use the same as the one used for the detector calibration
+hint = [277598,39097,52200,0] #hints used to fit the lorentzian - use the same hints discovered at the detector calibration
 
 #physics setup
 #####################
@@ -434,6 +434,7 @@ lines = ['Experiment info',
          'Device: Electrode calibration - AC method',
          'Min. Voltage: '+str(minVoltage),
          'Max. Voltage: '+str(maxVoltage),
+         'Driving freq.'+str(drivingFreq),
          'Auto/Manual: '+ str(auto),
          'Samp. freq.: '+str(f),
          'acq. time.: '+str(acqTime),
