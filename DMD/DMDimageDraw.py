@@ -105,13 +105,17 @@ def drawPixel(grid,i,j,col):
     plt.fill_between(grid[i][0,2*j+1:2*j+3], grid[i][1,2*j+1:2*j+3], np.flip(grid[i][1,4*col-2*j-2:4*col-2*j]), color='black',
     				alpha=1)
     
-def drawDmdImage(fileName, saveName = 'dmdImage.png',dpi = 300, linewidth = 0):
+def drawDmdImage(fileName, save = 1, show = 0,saveName = 'dmdImage.png',dpi = 300, linewidth = 0):
     """
     Parameters
     ----------
     fileName : string
         Name of the file to be converted into a DMD image. Should contain the 
         file path if the file is not in the active folder.
+    save : int
+        If equals to 1, the image is saved to file.
+    show : int
+        If equals to 0, the plot is not rendered.
     saveName : string
         Name of the file to be saved. The default is 'dmdImage.png'.
     dpi : int, optional
@@ -122,39 +126,32 @@ def drawDmdImage(fileName, saveName = 'dmdImage.png',dpi = 300, linewidth = 0):
 
     Returns
     -------
-    Saves the DMD image and returns nothing.
+    Returns nothing.
     """
     image = Image.open(fileName) # open colour image
     image = image.convert('1') # convert image to black and white
     image = np.array(image)
     row,col = np.shape(image)
     grid = makeGrid(row,col) #make the diamond grid
-    plt.ioff() #disable plot
     
-    for i in tqdm(range(row)):
-        
-        printGrid(grid, linewidth)
-        plt.gca().set_aspect('equal')
-        plt.axis('off')
-        plt.gray()
+    if show == 0:
+        plt.ioff() #disable plot
+    
+    printGrid(grid, linewidth)
+    plt.gca().set_aspect('equal')
+    plt.axis('off')
+    plt.gray()
+    
+    for i in tqdm(range(row)): 
         
         for j in range(col):
             
             if image[i,j] == 0:
                 
                 drawPixel(grid,i,j,col)
-        
-        plt.savefig(saveName, bbox_inches='tight',dpi=dpi)
-        imTemp = Image.open(saveName)
-        imTemp = imTemp.convert('1') # convert image to black and white
-        
-        if i == 0:
-            dmdImage = np.array(imTemp)
-        else:
-            dmdImage = dmdImage&np.array(imTemp)
-
-        plt.close()
     
-    im = Image.fromarray(dmdImage)
-    im.save(saveName)
-    plt.ion() #re-enable plotting
+    if save == 1:
+        plt.savefig(saveName, bbox_inches='tight',dpi=dpi)
+    
+    if show == 0:
+        plt.ion() #re-enable plotting
