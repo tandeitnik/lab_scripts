@@ -343,25 +343,3 @@ def leeHermiteHologram(n,m,wl,w0,z,x,y,x0,y0,theta = 0,horzScaleFactor = 1,vertS
         os.remove(os.path.join(os.getcwd(),"tempFile.png"))
     
     return hologram
-
-x0 = 10.8e-6*10000000000
-y0 = 10.8e-6*20
-x = np.linspace(0,10.8e-6*911,912)-10.8e-6*911/2
-y = np.linspace(0,10.8e-6*1139,1140)-10.8e-6*1139/2
-n = 0
-m = 1
-wl = 1550e-9
-z = 0
-horzScaleFactor = 1/2
-waistGaussian = 2e-3
-save = 1
-
-
-w0s = np.array([0.5,1,1.5,1.9])*1e-3
-name = [5,10,15,19]
-
-for i in range(len(w0s)):  
-    saveFileName = 'leeHermite'+str(name[i])+'mm'
-    hologram = leeHermiteHologram(n,m,wl,w0s[i],z,x,y,x0,y0,horzScaleFactor = horzScaleFactor,waistGaussian = waistGaussian,save = save, saveFileName = saveFileName)
-plt.imshow(hologram)
-plt.gca().set_aspect('equal')
