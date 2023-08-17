@@ -22,7 +22,7 @@ def scaleConv(image,bits):
 
 def floydDithering(image, bits, s = 0):
     
-    #if s = 1 it alternates the direction of the lines
+    #if s = 1 it alternates de direction of the lines
     
     hValue = 2**bits - 1
     threshhold = hValue/2
@@ -233,12 +233,12 @@ def jarvisDithering(image, bits, s = 0):
                     
     return image
 
-def amplitudeGaussianHermite(x,y,z,wl,w0,horzScaleFactor = 1,vertScaleFactor = 1):
+def amplitudeGaussianHermite(x,y,z,wl,w0,h = 0, v = 0, incidentAngle = 0):
 
     n = 0
     m = 0
-        
-    X, Y = np.meshgrid(x/horzScaleFactor, y/vertScaleFactor)
+    correctionFactor = 1/np.cos(np.radians(incidentAngle))
+    X, Y = np.meshgrid((x-h)/correctionFactor, y-v)
     
     k = (2*np.pi)/wl
     z_r = (k*w0**2)/2
@@ -251,12 +251,12 @@ def amplitudeGaussianHermite(x,y,z,wl,w0,horzScaleFactor = 1,vertScaleFactor = 1
     
     return amplitude
 
-def amplitudeGaussianLaguerre(x,y,z,wl,w0,horzScaleFactor = 1,vertScaleFactor = 1):
+def amplitudeGaussianLaguerre(x,y,z,wl,w0,h = 0, v = 0, incidentAngle = 0):
 
     p = 0
     l = 0
-    
-    X, Y = np.meshgrid(x/horzScaleFactor, y/vertScaleFactor)
+    correctionFactor = 1/np.cos(np.radians(incidentAngle))
+    X, Y = np.meshgrid((x-h)/correctionFactor, y-v)
     
     r = np.sqrt(X**2+Y**2)
     
@@ -270,11 +270,11 @@ def amplitudeGaussianLaguerre(x,y,z,wl,w0,horzScaleFactor = 1,vertScaleFactor = 
     
     return amplitude
 
-def ditHermiteHologram(n,m,wl,w0,z,x,y,x0,y0,theta = 0,horzScaleFactor = 1,vertScaleFactor = 1,waistGaussian = 0,save = 0, saveFileName = 'ditHermiteHologram'):
+def ditHermiteHologram(n,m,wl,w0,z,x,y,x0,y0,theta = 0,h = 0,v = 0,waistGaussian = 0,incidentAngle = 0,invert = 0,save = 0, saveFileName = 'ditHermiteHologram'):
 
     Xtemp, Ytemp = np.meshgrid(x, y)
-    X = (Xtemp*np.cos(theta) - Ytemp*np.sin(theta))/horzScaleFactor
-    Y = (Xtemp*np.sin(theta) + Ytemp*np.cos(theta))/vertScaleFactor
+    X = (Xtemp*np.cos(np.radians(theta)) - Ytemp*np.sin(np.radians(theta)))
+    Y = (Xtemp*np.sin(np.radians(theta)) + Ytemp*np.cos(np.radians(theta)))
     
     k = (2*np.pi)/wl
     z_r = (k*w0**2)/2
@@ -293,34 +293,37 @@ def ditHermiteHologram(n,m,wl,w0,z,x,y,x0,y0,theta = 0,horzScaleFactor = 1,vertS
     else:
         phase =  (1+n+m)*np.arctan2(z,z_r) - k*z -  (np.sign(np.sign(amplitude)+0.1)-1)*(np.pi/2)
     
-    phasePlane = 2*np.pi*X/x0 + 2*np.pi*Y/y0
+    phasePlane = 2*np.pi*Xtemp/x0 + 2*np.pi*Ytemp/y0
     
     if waistGaussian != 0:
         
-        amplitudeGaussian = amplitudeGaussianHermite(x,y,z,wl,w0 = waistGaussian,horzScaleFactor = horzScaleFactor,vertScaleFactor = vertScaleFactor)
+        amplitudeGaussian = amplitudeGaussianHermite(x,y,z,wl,w0 = waistGaussian,h = h,v = v, incidentAngle = incidentAngle)
         amplitudeGaussian = amplitudeGaussian/np.max(amplitudeGaussian)
-        hologram = amplitudeGaussian**2 + ampAbsNorm**2 + 2*ampAbsNorm*amplitudeGaussian*np.cos(phasePlane-phase)
-    
-    else:
+        ampAbsNorm = ampAbsNorm/amplitudeGaussian
+        ampAbsNorm = ampAbsNorm/np.max(ampAbsNorm)
         
-        hologram = 1 + ampAbsNorm**2 + 2*ampAbsNorm*np.cos(phasePlane-phase)
+    hologram = 1 + ampAbsNorm**2 + 2*ampAbsNorm*np.cos(phasePlane-phase)
     
     hologram = scaleConv(hologram,8) #converting to 8bit
     hologram = jarvisDithering(hologram,8, s= 1) #dithering
+    
+    if invert == 1:
+        
+        hologram = (hologram+1) % 2
     
     if save == 1:
         plt.gray()
         matplotlib.image.imsave(os.path.join(os.getcwd(),"tempFile.png"), hologram)
         plt.close()
         img = Image.open(os.path.join(os.getcwd(),"tempFile.png")).convert("RGB")
-        img.save(os.path.join(os.getcwd(),saveFileName+str(n)+str(m)+".bmp"))
+        img.save(os.path.join(os.getcwd(),saveFileName+".bmp"))
         os.remove(os.path.join(os.getcwd(),"tempFile.png"))
     
     return hologram
 
-def ditLaguerreHologram(l,p,wl,w0,z,x,y,x0,y0,horzScaleFactor = 1,vertScaleFactor = 1,waistGaussian = 0,save = 0,saveFileName = 'ditLaguerreHologram'):
+def ditLaguerreHologram(l,p,wl,w0,z,x,y,x0,y0,h = 0,v = 0,waistGaussian = 0,incidentAngle = 0, invert = 0, save = 0,saveFileName = 'ditLaguerreHologram'):
 
-    X, Y = np.meshgrid(x/horzScaleFactor, y/vertScaleFactor)
+    X, Y = np.meshgrid(x, y)
     
     r = np.sqrt(X**2+Y**2)
     phi = np.arctan2(Y,X)
@@ -348,23 +351,61 @@ def ditLaguerreHologram(l,p,wl,w0,z,x,y,x0,y0,horzScaleFactor = 1,vertScaleFacto
     
     if waistGaussian != 0:
         
-        amplitudeGaussian = amplitudeGaussianLaguerre(x,y,z,wl,w0 = waistGaussian,horzScaleFactor = horzScaleFactor,vertScaleFactor = vertScaleFactor)
+        amplitudeGaussian = amplitudeGaussianLaguerre(x,y,z,wl,w0 = waistGaussian,h = h,v = v, incidentAngle = incidentAngle)
         amplitudeGaussian = amplitudeGaussian/np.max(amplitudeGaussian)
-        hologram = amplitudeGaussian**2 + ampAbsNorm**2 + 2*ampAbsNorm*amplitudeGaussian*np.cos(phasePlane-phase)
-    
-    else:
+        ampAbsNorm = ampAbsNorm/amplitudeGaussian
+        ampAbsNorm = ampAbsNorm/np.max(ampAbsNorm)
         
-        hologram = 1 + ampAbsNorm**2 + 2*ampAbsNorm*np.cos(phasePlane-phase)
+    hologram = 1 + ampAbsNorm**2 + 2*ampAbsNorm*np.cos(phasePlane-phase)
     
     hologram = scaleConv(hologram,8) #converting to 8bit
     hologram = jarvisDithering(hologram,8, s= 1) #dithering
+    
+    if invert == 1:
+        
+        hologram = (hologram+1) % 2
     
     if save == 1:
         plt.gray()
         matplotlib.image.imsave(os.path.join(os.getcwd(),"tempFile.png"), hologram)
         plt.close()
         img = Image.open(os.path.join(os.getcwd(),"tempFile.png")).convert("RGB")
-        img.save(os.path.join(os.getcwd(),saveFileName+str(n)+str(m)+".bmp"))
+        img.save(os.path.join(os.getcwd(),saveFileName+".bmp"))
+        os.remove(os.path.join(os.getcwd(),"tempFile.png"))
+    
+    return hologram
+
+def grating(wl,x,y,x0,y0,centralCircle = 0, radius = 0,invert = 0,save = 0,saveFileName = 'grating'):
+    
+    X, Y = np.meshgrid(x, y)
+    
+    phasePlane = 2*np.pi*X/x0 + 2*np.pi*Y/y0
+    
+    hologram = 2 + 2*np.cos(phasePlane)
+    
+    hologram = scaleConv(hologram,8) #converting to 8bit
+    hologram = jarvisDithering(hologram,8, s= 1) #dithering
+    
+    if centralCircle == 1:
+    
+        for i in range(len(y)):
+            
+            for j in range(len(x)):
+                
+                if np.sqrt((y[i])**2+(x[j])**2) >= radius:
+                    
+                    hologram[i,j] = 0
+                    
+    if invert == 1:
+        
+        hologram = (hologram+1) % 2
+    
+    if save == 1:
+        plt.gray()
+        matplotlib.image.imsave(os.path.join(os.getcwd(),"tempFile.png"), hologram)
+        plt.close()
+        img = Image.open(os.path.join(os.getcwd(),"tempFile.png")).convert("RGB")
+        img.save(os.path.join(os.getcwd(), saveFileName+".bmp"))
         os.remove(os.path.join(os.getcwd(),"tempFile.png"))
     
     return hologram
